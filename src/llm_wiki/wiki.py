@@ -27,7 +27,7 @@ def write_page(wiki_dir: str, page_name: str, content: str) -> None:
     """写入 wiki 页面（先写临时文件再原子替换）。"""
     path = Path(wiki_dir) / "pages" / page_name
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
+    tmp = path.with_suffix(f".tmp.{hash(content) & 0xFFFF:04x}")
     tmp.write_text(content, encoding="utf-8")
     tmp.replace(path)
 
@@ -43,7 +43,7 @@ def read_index(wiki_dir: str) -> str:
 def write_index(wiki_dir: str, content: str) -> None:
     """写入 index.md（先写临时文件再原子替换）。"""
     path = Path(wiki_dir) / "index.md"
-    tmp = path.with_suffix(".tmp")
+    tmp = path.with_suffix(f".tmp.{hash(content) & 0xFFFF:04x}")
     tmp.write_text(content, encoding="utf-8")
     tmp.replace(path)
 
@@ -59,6 +59,7 @@ def read_log(wiki_dir: str) -> str:
 def append_log(wiki_dir: str, entry: str) -> None:
     """追加一条日志到 log.md。"""
     path = Path(wiki_dir) / "log.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     line = f"## [{timestamp}] {entry}\n\n"
     with open(path, "a", encoding="utf-8") as f:
