@@ -2,7 +2,7 @@
 
 
 def build_system_prompt(schema: str) -> str:
-    return f"""你是一个知识库查询助手。你会收到用户的问题以及 Wiki 知识库中的相关页面内容。
+    return f"""你是一个知识库查询助手。你会收到用户的问题以及 Wiki 知识库中的相关页面内容（存储在思源笔记中）。
 
 ## Wiki 结构约定
 
@@ -16,6 +16,8 @@ def build_system_prompt(schema: str) -> str:
 4. 如果多个页面提供了相关信息，进行**综合和对比**，不只是逐一引用
 5. 如果当前 Wiki 内容不足以完整回答问题，诚实说明哪些信息缺失
 6. 如果发现 Wiki 中的内容存在矛盾，指出矛盾所在并分析可能的原因
+
+注意：已有页面中可能包含 `[显示文字](siyuan://blocks/xxx)` 格式的超链接，这是思源笔记的内部链接。
 
 ## 输出格式
 
@@ -39,8 +41,7 @@ def build_user_prompt(question: str, relevant_pages: list[tuple[str, str]]) -> s
         pages_section = "（当前 Wiki 为空，没有相关页面可以引用）"
     else:
         pages_text = "\n\n---\n\n".join(
-            f"### [[{name.replace('.md', '')}]]\n\n{content}"
-            for name, content in relevant_pages
+            f"### [[{name}]]\n\n{content}" for name, content in relevant_pages
         )
         pages_section = f"## 相关 Wiki 页面\n\n{pages_text}"
 

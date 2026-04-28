@@ -3,11 +3,11 @@
 from llm_wiki.wiki import list_pages, read_page
 
 
-def build_system_prompt(schema: str, wiki_dir: str) -> str:
+def build_system_prompt(schema: str) -> str:
     """构建摄入系统提示词，包含现有页面内容作为上下文。"""
-    existing_context = _build_existing_context(wiki_dir)
+    existing_context = _build_existing_context()
 
-    return f"""你是一个知识库维护助手。你的任务是将新的来源文档深度整合到已有的 Wiki 知识库中。
+    return f"""你是一个知识库维护助手。你的任务是将新的来源文档深度整合到已有的 Wiki 知识库中（存储在思源笔记中）。
 
 ## Wiki 结构约定
 
@@ -21,7 +21,7 @@ def build_system_prompt(schema: str, wiki_dir: str) -> str:
 
 仔细阅读用户提供的来源文档，执行以下操作：
 
-### 1. 创建来源摘要页 (`pages/sources/source-xxx.md`)
+### 1. 创建来源摘要页 (`/pages/sources/source-xxx`)
 
 从来源文档中提炼关键信息，结构如下：
 
@@ -50,7 +50,7 @@ def build_system_prompt(schema: str, wiki_dir: str) -> str:
 - ...（引用具体的已有页面，说明关联方式）
 ```
 
-### 2. 创建或更新实体页 (`pages/entities/实体名.md`)
+### 2. 创建或更新实体页 (`/pages/entities/实体名`)
 
 对文档中涉及的每个实体（人物、组织、地点、作品等），创建或更新其专属页面：
 
@@ -83,7 +83,7 @@ def build_system_prompt(schema: str, wiki_dir: str) -> str:
 
 如果实体页已存在，请**在原内容基础上追加和融合**新信息，而不是重写。在更新的内容后面标注来源：`<!-- 来源: source-xxx -->`。
 
-### 3. 创建或更新概念页 (`pages/concepts/概念名.md`)
+### 3. 创建或更新概念页 (`/pages/concepts/概念名`)
 
 对文档中涉及的每个概念、理论或主题：
 
@@ -132,7 +132,11 @@ def build_system_prompt(schema: str, wiki_dir: str) -> str:
 
 - 新页面中通过 `[[页面名]]` 链接到相关的已有页面
 - 更新已有的相关页面，添加回链到新页面
-- `[[页面名]]` 不带 `.md` 扩展名，不带子目录前缀
+- `[[页面名]]` 不带路径前缀，只写页面名称（如 `[[实体名]]` 而不是 `[[/pages/entities/实体名]]`）
+
+## 关于已有内容中的链接
+
+已有页面中可能包含 `[显示文字](siyuan://blocks/xxx)` 格式的超链接。这些是思源笔记的内部链接，请**保持不动**。你只需关注内容本身。在输出新内容时，使用 `[[页面名]]` 格式引用页面，系统会自动转换。
 
 ## 输出格式
 
@@ -144,7 +148,7 @@ def build_system_prompt(schema: str, wiki_dir: str) -> str:
 2-3 句话说明这篇来源的核心内容和你的整合策略。
 
 ## 文件操作
-### 创建 pages/sources/source-xxx.md
+### 创建 sources/source-xxx
 # 来源标题
 
 ## 基本信息
@@ -157,27 +161,27 @@ def build_system_prompt(schema: str, wiki_dir: str) -> str:
 展开的描述，2-3句话。
 ...（更多内容）
 
-### 创建 pages/entities/实体名.md
+### 创建 entities/实体名
 # 实体名称
 
 ## 基本信息
 - **类型**: 模型
 ...
 
-### 更新 pages/entities/已有实体.md
+### 更新 entities/已有实体
 # 已有实体名称
 
 ## 基本信息
 ...
 （在原内容基础上追加新信息）
 
-### 更新 pages/concepts/概念名.md
+### 更新 concepts/概念名
 # 概念名称
 
 ## 定义
 ...
 
-### 更新 index.md
+### 更新 index
 # 索引
 
 ## 来源
@@ -197,7 +201,8 @@ ingest | 来源标题 — 创建了 N 个页面，更新了 M 个页面
 - **绝对不要**用 ```（三个反引号）包裹页面内容，直接写 Markdown 正文
 - 页面内容必须达到字数要求：来源页 >= 200 字，实体页/概念页 >= 300 字
 - 页面必须使用 `##` 分段结构，不是一个标题加一句话就结束
-- index.md 应包含所有已有条目和新条目，按"来源/实体/概念/对比/综述/查询存档"分类
+- index 应包含所有已有条目和新条目，按"来源/实体/概念/对比/综述/查询存档"分类
+- 路径中不要带 `/pages/` 前缀，系统会自动添加（如写 `sources/source-xxx` 而不是 `/pages/sources/source-xxx`）
 - 如果某个操作不需要（例如文档没有涉及新实体），可以省略对应块
 
 {existing_context}
@@ -222,18 +227,18 @@ def build_user_prompt(source_text: str, index_content: str, file_name: str) -> s
 请按照系统提示词中的格式，输出你的深度整合方案。确保每个页面内容详尽，达到字数要求。"""
 
 
-def _build_existing_context(wiki_dir: str) -> str:
+def _build_existing_context() -> str:
     """构建已有页面的内容摘要，帮助 LLM 理解该更新哪些页面。"""
-    pages = list_pages(wiki_dir)
+    pages = list_pages()
     if not pages:
         return "（当前 Wiki 为空，还没有任何页面）"
 
     lines = ["## 现有 Wiki 页面内容概览\n"]
     for name in pages[:30]:  # 限制数量避免 token 溢出
-        content = read_page(wiki_dir, name)
+        content = read_page(name)
         # 只取前 500 字作为概要
         preview = content[:500] + "..." if len(content) > 500 else content
-        display_name = name.replace(".md", "").replace("\\", "/")
+        display_name = name.replace("\\", "/")
         lines.append(f"### [[{display_name}]]\n{preview}\n")
 
     return "\n".join(lines)

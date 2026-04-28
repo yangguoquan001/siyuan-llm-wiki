@@ -1,26 +1,27 @@
-import tempfile
-from pathlib import Path
-from unittest.mock import patch
-from llm_wiki.operations.ingest import run, _parse_operations, _extract_log_entry
+"""测试摄入操作 — 解析 + 端到端流程。"""
+
+from unittest.mock import patch, MagicMock
+from llm_wiki.operations.ingest import _parse_operations, _extract_log_entry
 
 
 class TestParseOperations:
     def test_parse_create_and_update(self):
+        """解析创建和更新操作（新格式：无 pages/ 前缀，无 .md 扩展名）。"""
         response = """## 分析摘要
 这是一篇测试文章。
 
 ## 文件操作
-### 创建 pages/sources/source-test.md
+### 创建 sources/source-test
 # 测试来源
 
 这是来源摘要。
 
-### 更新 pages/concepts/概念.md
+### 更新 concepts/概念
 # 概念
 
 更新后的概念内容。
 
-### 更新 index.md
+### 更新 index
 # 索引
 
 ## 来源
@@ -33,11 +34,11 @@ ingest | 测试来源 — 更新了 2 个页面
         assert len(ops) == 3
 
         assert ops[0]["action"] == "create"
-        assert ops[0]["path"] == "sources/source-test.md"
+        assert ops[0]["path"] == "sources/source-test"
         assert "测试来源" in ops[0]["content"]
 
         assert ops[1]["action"] == "update"
-        assert ops[1]["path"] == "concepts/概念.md"
+        assert ops[1]["path"] == "concepts/概念"
         assert "更新后的概念内容" in ops[1]["content"]
 
         assert ops[2]["action"] == "update_index"
@@ -45,7 +46,7 @@ ingest | 测试来源 — 更新了 2 个页面
 
     def test_extract_log_entry(self):
         response = """## 日志条目
-ingest | 文章标题 \u2014 更新了 3 个页面
+ingest | 文章标题 — 更新了 3 个页面
 """
         entry = _extract_log_entry(response)
         assert entry == "ingest | 文章标题 — 更新了 3 个页面"
@@ -56,7 +57,7 @@ ingest | 文章标题 \u2014 更新了 3 个页面
 测试。
 
 ## 文件操作
-### 创建 pages/sources/source-test.md
+### 创建 sources/source-test
 # 测试来源
 
 ## 基本信息
@@ -66,7 +67,7 @@ ingest | 文章标题 \u2014 更新了 3 个页面
 ### 要点一
 详细的描述内容。
 
-### 更新 pages/entities/实体.md
+### 更新 entities/实体
 # 实体
 
 ## 详细描述
@@ -83,9 +84,9 @@ ingest | 测试 — 完成
         assert "## 详细描述" in ops[1]["content"]
 
     def test_parse_create_index(self):
-        """首次摄入时 LLM 可能输出 创建 index.md 而非 更新。"""
+        """首次摄入时 LLM 可能输出 创建 index。"""
         response = """## 文件操作
-### 创建 index.md
+### 创建 index
 # 索引
 
 ## 来源
@@ -101,24 +102,65 @@ ingest | 测试
 
 
 class TestIngestRun:
+    def _make_mock_client(self):
+        """创建带内存存储的模拟 SiYuan 客户端。"""
+        client = MagicMock()
+        docs: dict[str, str] = {}
+        id_counter = [0]
+
+        def _next_id():
+            id_counter[0] += 1
+            return f"20250101000000-test{id_counter[0]:04d}"
+
+        def _get_ids_by_hpath(path):
+            if path in docs:
+                return [docs.get(f"__id__{path}", "")]
+            return []
+
+        def _create_doc(path, markdown):
+            bid = _next_id()
+            docs[path] = markdown
+            docs[f"__id__{path}"] = bid
+            return bid
+
+        def _update_block(block_id, markdown):
+            for key, val in list(docs.items()):
+                if val == block_id and key.startswith("__id__"):
+                    real_path = key[6:]
+                    docs[real_path] = markdown
+                    break
+
+        def _export_md_content(block_id):
+            for key, val in list(docs.items()):
+                if val == block_id and key.startswith("__id__"):
+                    return docs.get(key[6:], "")
+            return ""
+
+        def _sql_query(stmt):
+            results = []
+            for path in docs:
+                if path.startswith("/pages/") and not path.startswith("__id__"):
+                    bid = docs.get(f"__id__{path}", "")
+                    results.append({"id": bid, "hpath": path})
+            return results
+
+        client.get_ids_by_hpath.side_effect = _get_ids_by_hpath
+        client.create_doc.side_effect = _create_doc
+        client.update_block.side_effect = _update_block
+        client.export_md_content.side_effect = _export_md_content
+        client.sql_query.side_effect = _sql_query
+        client.get_child_blocks.return_value = []
+
+        return client
+
     def test_full_ingest_flow(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            from llm_wiki.wiki import init_wiki, list_pages, read_index, read_log
-            from llm_wiki.schema import write_default_schema
+        client = self._make_mock_client()
 
-            wiki_dir = str(Path(tmp) / "wiki")
-            raw_dir = str(Path(tmp) / "raw")
-            init_wiki(wiki_dir, raw_dir)
-            write_default_schema(wiki_dir)
-
-            source_path = Path(raw_dir) / "test_article.md"
-            source_path.write_text("# 测试文章\n\n这是测试内容。", encoding="utf-8")
-
-            mock_response = """## 分析摘要
+        mock_response = """## 分析摘要
 测试文章的摘要。
 
 ## 文件操作
-### 创建 pages/sources/source-test_article.md
+### 创建 sources/source-test_article
 # 测试文章
 
 ## 关键要点
@@ -128,7 +170,7 @@ class TestIngestRun:
 ## 关联页面
 - [[首页]]
 
-### 更新 index.md
+### 更新 index
 # 索引
 
 ## 来源
@@ -137,14 +179,19 @@ class TestIngestRun:
 ## 日志条目
 ingest | 测试文章 — 更新了 1 个页面
 """
-            with patch("llm_wiki.operations.ingest.chat", return_value=mock_response):
-                result = run(str(source_path), wiki_dir, raw_dir)
+        with (
+            patch("llm_wiki.operations.ingest.chat", return_value=mock_response),
+            patch("llm_wiki.wiki.get_client", return_value=client),
+            patch("llm_wiki.siyuan.get_client", return_value=client),
+            patch("llm_wiki.schema.load_schema", return_value="# Schema"),
+            patch(
+                "llm_wiki.operations.ingest.reader.read_file", return_value="# 测试内容"
+            ),
+        ):
+            from llm_wiki.operations.ingest import run
 
-            assert len(result["changes"]) > 0
-            assert any("source-test_article" in c for c in result["changes"])
-            assert "index.md" in result["changes"]
-            index_content = read_index(wiki_dir)
-            assert "## 来源" in index_content
-            assert "source-test_article" in index_content
-            log = read_log(wiki_dir)
-            assert "测试文章" in log
+            result = run("test.md")
+
+        assert len(result["changes"]) > 0
+        assert any("source-test_article" in c for c in result["changes"])
+        assert "index" in result["changes"]

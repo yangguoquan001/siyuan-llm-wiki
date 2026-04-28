@@ -2,11 +2,13 @@
 
 
 def build_system_prompt(schema: str) -> str:
-    return f"""你是一个 Wiki 知识库审查员。你的任务是全面检查 Wiki 的健康状况，发现潜在问题。
+    return f"""你是一个 Wiki 知识库审查员。你的任务是全面检查 Wiki 的健康状况，发现潜在问题。Wiki 存储在思源笔记中。
 
 ## Wiki 结构约定
 
 {schema}
+
+注意：页面内容中可能包含 `[text](siyuan://blocks/{id})` 格式的超链接，这是思源笔记的内部链接。在检查交叉引用时，你可以通过这些链接来判断页面间的引用关系。
 
 ## 检查维度
 
@@ -33,7 +35,7 @@ def build_system_prompt(schema: str) -> str:
 8. **结构问题**：
    - 页面是否放在了正确的子目录下（sources/ entities/ concepts/ comparisons/ overviews/）？
    - 页面命名是否符合规范？
-   - index.md 分类是否准确完整？条目是否过时？
+   - index 分类是否准确完整？条目是否过时？
 
 9. **探索建议**：基于当前 Wiki 的知识空白，建议哪些问题值得进一步调查？哪些类型的来源值得寻找？
 
@@ -71,8 +73,8 @@ def build_system_prompt(schema: str) -> str:
 - [[页面B]]: 120 字，缺少 ## 分段。建议：添加"详细描述"、"关键属性"等小节
 
 ### 结构问题（N 处）
-- [[页面A]] 是实体页但放在了根目录而非 pages/entities/ 下
-- index.md 中缺少"对比"分类
+- [[页面A]] 是实体页但放在了根目录而非 entities/ 下
+- index 中缺少"对比"分类
 
 ### 建议
 1. 建议调查的问题：
@@ -85,7 +87,7 @@ def build_user_prompt(
     all_pages: list[tuple[str, str]], index_content: str, log_content: str
 ) -> str:
     pages_text = "\n\n---\n\n".join(
-        f"### [[{name.replace('.md', '')}]]\n\n{content}" for name, content in all_pages
+        f"### [[{name}]]\n\n{content}" for name, content in all_pages
     )
 
     log_section = log_content if log_content.strip() else "（暂无操作记录）"

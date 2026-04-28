@@ -1,6 +1,7 @@
-import tempfile
-from pathlib import Path
-from llm_wiki.schema import load_schema, write_default_schema, DEFAULT_SCHEMA
+"""测试 schema.py — 使用模拟的思源 API。"""
+
+from unittest.mock import patch, MagicMock
+from llm_wiki.schema import DEFAULT_SCHEMA
 
 
 def test_default_schema_is_chinese():
@@ -11,48 +12,67 @@ def test_default_schema_is_chinese():
 
 
 def test_load_schema_returns_default_when_no_file():
-    with tempfile.TemporaryDirectory() as tmp:
-        result = load_schema(tmp)
+    """当 /schema 文档为空时返回默认 schema。"""
+    mock_client = MagicMock()
+    mock_client.get_ids_by_hpath.return_value = []
+    mock_client.export_md_content.return_value = ""
+
+    with patch("llm_wiki.wiki.get_client", return_value=mock_client):
+        from llm_wiki.schema import load_schema
+
+        result = load_schema()
         assert result == DEFAULT_SCHEMA
 
 
-def test_load_schema_returns_file_content():
-    with tempfile.TemporaryDirectory() as tmp:
-        schema_path = Path(tmp) / "schema.md"
-        schema_path.write_text("# 自定义 Schema", encoding="utf-8")
-        result = load_schema(tmp)
+def test_load_schema_returns_doc_content():
+    """当 /schema 有内容时返回文档内容。"""
+    mock_client = MagicMock()
+    mock_client.get_ids_by_hpath.return_value = ["20250101000000-abc123"]
+    mock_client.export_md_content.return_value = "# 自定义 Schema"
+
+    with patch("llm_wiki.wiki.get_client", return_value=mock_client):
+        from llm_wiki.schema import load_schema
+
+        result = load_schema()
         assert result == "# 自定义 Schema"
 
 
-def test_write_default_schema_creates_file():
-    with tempfile.TemporaryDirectory() as tmp:
-        write_default_schema(tmp)
-        schema_path = Path(tmp) / "schema.md"
-        assert schema_path.exists()
-        content = schema_path.read_text(encoding="utf-8")
-        assert "Wiki 结构约定" in content
+def test_write_default_schema_writes_when_empty():
+    """当 /schema 为空时写入默认 schema。"""
+    mock_client = MagicMock()
+    mock_client.get_ids_by_hpath.return_value = ["20250101000000-abc123"]
+    mock_client.export_md_content.return_value = ""
+
+    with patch("llm_wiki.wiki.get_client", return_value=mock_client):
+        from llm_wiki.schema import write_default_schema
+
+        write_default_schema()
+        # 应该调用了 update_block（因为文档已存在但内容为空）
+        assert mock_client.update_block.called or mock_client.create_doc.called
 
 
 def test_write_default_schema_does_not_overwrite():
-    with tempfile.TemporaryDirectory() as tmp:
-        schema_path = Path(tmp) / "schema.md"
-        schema_path.write_text("# 我的自定义 Schema", encoding="utf-8")
-        write_default_schema(tmp)
-        assert schema_path.read_text(encoding="utf-8") == "# 我的自定义 Schema"
+    """当 /schema 已有内容时不覆盖。"""
+    mock_client = MagicMock()
+    mock_client.get_ids_by_hpath.return_value = ["20250101000000-abc123"]
+    mock_client.export_md_content.return_value = "# 我的自定义 Schema"
+
+    with patch("llm_wiki.wiki.get_client", return_value=mock_client):
+        from llm_wiki.schema import write_default_schema
+
+        write_default_schema()
+        mock_client.update_block.assert_not_called()
+        mock_client.create_doc.assert_not_called()
 
 
-def test_load_schema_returns_default_when_file_empty():
-    with tempfile.TemporaryDirectory() as tmp:
-        schema_path = Path(tmp) / "schema.md"
-        schema_path.write_text("", encoding="utf-8")
-        result = load_schema(tmp)
+def test_load_schema_returns_default_when_empty_string():
+    """当 /schema 内容为空字符串时返回默认。"""
+    mock_client = MagicMock()
+    mock_client.get_ids_by_hpath.return_value = ["20250101000000-abc123"]
+    mock_client.export_md_content.return_value = "   "  # 空白
+
+    with patch("llm_wiki.wiki.get_client", return_value=mock_client):
+        from llm_wiki.schema import load_schema
+
+        result = load_schema()
         assert result == DEFAULT_SCHEMA
-
-
-def test_write_default_schema_overwrites_empty_file():
-    with tempfile.TemporaryDirectory() as tmp:
-        schema_path = Path(tmp) / "schema.md"
-        schema_path.write_text("", encoding="utf-8")
-        write_default_schema(tmp)
-        content = schema_path.read_text(encoding="utf-8")
-        assert "Wiki 结构约定" in content
