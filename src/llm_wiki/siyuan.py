@@ -180,6 +180,29 @@ def set_config(url: str = "", token: str = "", notebook: str = "") -> None:
     _client = None  # 重置，下次 get_client 会用新配置重新创建
 
 
+def list_notebooks(url: str = "", token: str = "") -> list[dict]:
+    """列出所有笔记本（不需要笔记本 ID）。返回 [{id, name, icon, sort, closed}, ...]。"""
+    u, t, _ = _get_config(url, token, "")
+    if not t:
+        raise SiYuanError("SIYUAN_TOKEN 未设置")
+    data = _api(u, t, "/api/notebook/lsNotebooks")
+    if isinstance(data, dict):
+        return data.get("notebooks", [])
+    return []
+
+
+def create_notebook(name: str, url: str = "", token: str = "") -> dict:
+    """创建笔记本（不需要笔记本 ID）。返回 {id, name, icon, sort, closed}。"""
+    u, t, _ = _get_config(url, token, "")
+    if not t:
+        raise SiYuanError("SIYUAN_TOKEN 未设置")
+    data = _api(u, t, "/api/notebook/createNotebook", {"name": name})
+    if isinstance(data, dict):
+        nb = data.get("notebook", {})
+        return nb
+    return {}
+
+
 def get_client() -> SiYuanClient:
     global _client
     if _client is None:

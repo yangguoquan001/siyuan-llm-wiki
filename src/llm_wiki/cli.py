@@ -65,6 +65,35 @@ def init(ctx, raw_dir):
 
 
 @main.command()
+def notebooks():
+    """列出思源笔记中所有笔记本及其 ID。"""
+    from llm_wiki.siyuan import list_notebooks
+
+    try:
+        nbs = list_notebooks()
+    except Exception as e:
+        click.echo(f"错误：{e}", err=True)
+        raise SystemExit(1)
+
+    if not nbs:
+        click.echo("未找到任何笔记本。请在思源中创建笔记本后再试。")
+        click.echo()
+        click.echo(
+            "提示：设置 SIYUAN_NOTEBOOK=<笔记本ID> 环境变量，或使用 --siyuan-notebook 选项。"
+        )
+        return
+
+    click.echo(f"{'笔记本名称':<20} {'笔记本ID':<30} {'状态'}")
+    click.echo("-" * 60)
+    for nb in nbs:
+        status = "已关闭" if nb.get("closed") else "已打开"
+        click.echo(f"{nb.get('name', ''):<20} {nb.get('id', ''):<30} {status}")
+    click.echo()
+    click.echo("使用方法：设置环境变量 SIYUAN_NOTEBOOK=<笔记本ID>")
+    click.echo('例如：$env:SIYUAN_NOTEBOOK = "20210817205410-2kvfpfn"')
+
+
+@main.command()
 @click.argument("source_file")
 @click.option("--raw-dir", "-r", default=None, help="原始来源目录路径")
 def ingest(source_file, raw_dir):
