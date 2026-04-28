@@ -33,11 +33,11 @@ ingest | 测试来源 — 更新了 2 个页面
         assert len(ops) == 3
 
         assert ops[0]["action"] == "create"
-        assert ops[0]["path"] == "pages/sources/source-test.md"
+        assert ops[0]["path"] == "sources/source-test.md"
         assert "测试来源" in ops[0]["content"]
 
         assert ops[1]["action"] == "update"
-        assert ops[1]["path"] == "pages/concepts/概念.md"
+        assert ops[1]["path"] == "concepts/概念.md"
         assert "更新后的概念内容" in ops[1]["content"]
 
         assert ops[2]["action"] == "update_index"

@@ -44,20 +44,49 @@ def _parse_operations(response: str) -> list[dict]:
     pattern = r"### (创建|更新) (pages/.+?\.md)\n(.*?)(?=\n### |\n## |\Z)"
     for match in re.finditer(pattern, response, re.DOTALL):
         action = "create" if match.group(1) == "创建" else "update"
+        path = match.group(2).strip()
+        content = match.group(3).strip()
+        # 去除 pages/ 前缀 — write_page 会自动加上 pages/
+        if path.startswith("pages/"):
+            path = path[6:]
+        # 去除内容外层包裹的 ```markdown 代码块
+        content = _strip_markdown_fence(content)
         ops.append(
             {
                 "action": action,
-                "path": match.group(2).strip(),
-                "content": match.group(3).strip(),
+                "path": path,
+                "content": content,
             }
         )
 
-    idx_pattern = r"### 更新 index\.md\n(.*?)(?=\n## 日志条目|\n## \Z|\Z)"
+    idx_pattern = r"### 更新 index\.md\n(.*?)(?=\n## 日志条目|\Z)"
     idx_match = re.search(idx_pattern, response, re.DOTALL)
     if idx_match:
-        ops.append({"action": "update_index", "content": idx_match.group(1).strip()})
+        content = idx_match.group(1).strip()
+        content = _strip_markdown_fence(content)
+        ops.append({"action": "update_index", "content": content})
 
     return ops
+
+
+def _strip_markdown_fence(text: str) -> str:
+    """去除 LLM 可能包裹在内容外层的 ```markdown ... ``` 代码块。"""
+    text = text.strip()
+    if text.startswith("```markdown") or text.startswith("```md"):
+        # 找到结尾的 ```
+        end = text.rfind("```")
+        if end > 0:
+            # 跳过开头的 ```markdown 或 ```md 行
+            first_newline = text.find("\n")
+            if first_newline > 0:
+                text = text[first_newline + 1 : end].strip()
+    elif text.startswith("```"):
+        end = text.rfind("```")
+        if end > 0 and end != 0:
+            first_newline = text.find("\n")
+            if first_newline > 0:
+                text = text[first_newline + 1 : end].strip()
+    return text
 
 
 def _extract_log_entry(response: str) -> str:
