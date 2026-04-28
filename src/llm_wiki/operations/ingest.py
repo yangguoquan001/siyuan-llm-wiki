@@ -14,7 +14,7 @@ def run(source_path: str, wiki_dir: str, raw_dir: str = "raw") -> dict:
     schema_content = schema.load_schema(wiki_dir)
     index_content = wiki.read_index(wiki_dir)
 
-    system_prompt = build_system_prompt(schema_content)
+    system_prompt = build_system_prompt(schema_content, wiki_dir)
     user_prompt = build_user_prompt(source_text, index_content, file_name)
 
     response = chat(system_prompt, user_prompt)

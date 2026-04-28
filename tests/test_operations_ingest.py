@@ -10,12 +10,12 @@ class TestParseOperations:
 这是一篇测试文章。
 
 ## 文件操作
-### 创建 pages/source-test.md
+### 创建 pages/sources/source-test.md
 # 测试来源
 
 这是来源摘要。
 
-### 更新 pages/概念.md
+### 更新 pages/concepts/概念.md
 # 概念
 
 更新后的概念内容。
@@ -27,17 +27,17 @@ class TestParseOperations:
 - [[source-test]]: 测试来源
 
 ## 日志条目
-ingest | 测试来源 \u2014 更新了 2 个页面
+ingest | 测试来源 — 更新了 2 个页面
 """
         ops = _parse_operations(response)
         assert len(ops) == 3
 
         assert ops[0]["action"] == "create"
-        assert ops[0]["path"] == "pages/source-test.md"
+        assert ops[0]["path"] == "pages/sources/source-test.md"
         assert "测试来源" in ops[0]["content"]
 
         assert ops[1]["action"] == "update"
-        assert ops[1]["path"] == "pages/概念.md"
+        assert ops[1]["path"] == "pages/concepts/概念.md"
         assert "更新后的概念内容" in ops[1]["content"]
 
         assert ops[2]["action"] == "update_index"
@@ -69,7 +69,7 @@ class TestIngestRun:
 测试文章的摘要。
 
 ## 文件操作
-### 创建 pages/source-test_article.md
+### 创建 pages/sources/source-test_article.md
 # 测试文章
 
 ## 关键要点
@@ -86,7 +86,7 @@ class TestIngestRun:
 - [[source-test_article]]: 测试文章摘要
 
 ## 日志条目
-ingest | 测试文章 \u2014 更新了 1 个页面
+ingest | 测试文章 — 更新了 1 个页面
 """
             with patch("llm_wiki.operations.ingest.chat", return_value=mock_response):
                 result = run(str(source_path), wiki_dir, raw_dir)

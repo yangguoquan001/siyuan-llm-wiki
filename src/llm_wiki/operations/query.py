@@ -27,14 +27,15 @@ def run(question: str, wiki_dir: str, save: bool = False) -> dict:
     if save and answer:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M")
         safe_title = _make_safe_title(question[:40])
-        page_name = f"query-{safe_title}-{timestamp}.md"
+        page_name = f"queries/query-{safe_title}-{timestamp}.md"
         wiki.write_page(wiki_dir, page_name, response)
         wiki.append_log(wiki_dir, f"query | {question[:50]} — 回答已保存为 {page_name}")
 
         index_content = wiki.read_index(wiki_dir)
-        new_entry = f"- [[{page_name.replace('.md', '')}]]: {question[:60]}\n"
-        if "## 查询" not in index_content:
-            index_content += "\n## 查询\n"
+        display_name = page_name.replace(".md", "").replace("queries/", "")
+        new_entry = f"- [[{display_name}]]: {question[:60]}\n"
+        if "## 查询存档" not in index_content:
+            index_content += "\n## 查询存档\n"
         index_content += new_entry
         wiki.write_index(wiki_dir, index_content)
         saved = page_name

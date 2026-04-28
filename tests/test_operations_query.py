@@ -39,7 +39,7 @@ class TestQueryRun:
             init_wiki(wiki_dir, raw_dir)
             write_default_schema(wiki_dir)
 
-            write_page(wiki_dir, "概念A.md", "# 概念A\n\n这是概念A的内容。")
+            write_page(wiki_dir, "concepts/概念A.md", "# 概念A\n\n这是概念A的内容。")
             write_index(wiki_dir, "# 索引\n\n## 概念\n- [[概念A]]: 测试概念")
 
             mock_response = """## 回答
@@ -64,7 +64,7 @@ class TestQueryRunWithSave:
             init_wiki(wiki_dir, raw_dir)
             write_default_schema(wiki_dir)
 
-            write_page(wiki_dir, "概念B.md", "# 概念B\n\n内容。")
+            write_page(wiki_dir, "concepts/概念B.md", "# 概念B\n\n内容。")
             write_index(wiki_dir, "# 索引\n\n## 概念\n- [[概念B]]: 测试")
 
             mock_response = """## 回答
@@ -76,7 +76,7 @@ class TestQueryRunWithSave:
             with patch("llm_wiki.operations.query.chat", return_value=mock_response):
                 result = run("问题？", wiki_dir, save=True)
                 assert result["saved"]
-                assert ".md" in result["saved"]
+                assert "queries/" in result["saved"]
 
             saved_page = result["saved"]
             content = read_page(wiki_dir, saved_page)
