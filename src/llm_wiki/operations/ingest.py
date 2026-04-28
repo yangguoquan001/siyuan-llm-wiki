@@ -41,7 +41,7 @@ def run(source_path: str, wiki_dir: str, raw_dir: str = "raw") -> dict:
 def _parse_operations(response: str) -> list[dict]:
     """解析 LLM 响应中的文件操作指令。"""
     ops = []
-    pattern = r"### (创建|更新) (pages/.+?\.md)\n(.*?)(?=\n### |\n## |\Z)"
+    pattern = r"### (创建|更新) (pages/.+?\.md)\n(.*?)(?=\n### (?:创建|更新) |\n## 日志条目|\Z)"
     for match in re.finditer(pattern, response, re.DOTALL):
         action = "create" if match.group(1) == "创建" else "update"
         path = match.group(2).strip()

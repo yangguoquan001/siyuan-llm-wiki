@@ -48,7 +48,39 @@ ingest | 测试来源 — 更新了 2 个页面
 ingest | 文章标题 \u2014 更新了 3 个页面
 """
         entry = _extract_log_entry(response)
-        assert entry == "ingest | 文章标题 \u2014 更新了 3 个页面"
+        assert entry == "ingest | 文章标题 — 更新了 3 个页面"
+
+    def test_parse_page_with_internal_headers(self):
+        """页面内容包含 ## 分段时不会在分段处被截断。"""
+        response = """## 分析摘要
+测试。
+
+## 文件操作
+### 创建 pages/sources/source-test.md
+# 测试来源
+
+## 基本信息
+- **类型**: 论文
+
+## 关键要点
+### 要点一
+详细的描述内容。
+
+### 更新 pages/entities/实体.md
+# 实体
+
+## 详细描述
+这是一个详细的描述段落。
+
+## 日志条目
+ingest | 测试 — 完成
+"""
+        ops = _parse_operations(response)
+        assert len(ops) == 2
+        assert "## 基本信息" in ops[0]["content"]
+        assert "## 关键要点" in ops[0]["content"]
+        assert "要点一" in ops[0]["content"]
+        assert "## 详细描述" in ops[1]["content"]
 
 
 class TestIngestRun:
