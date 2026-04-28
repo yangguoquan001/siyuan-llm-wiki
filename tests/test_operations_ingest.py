@@ -82,6 +82,23 @@ ingest | 测试 — 完成
         assert "要点一" in ops[0]["content"]
         assert "## 详细描述" in ops[1]["content"]
 
+    def test_parse_create_index(self):
+        """首次摄入时 LLM 可能输出 创建 index.md 而非 更新。"""
+        response = """## 文件操作
+### 创建 index.md
+# 索引
+
+## 来源
+- [[source-x]]: 测试来源
+
+## 日志条目
+ingest | 测试
+"""
+        ops = _parse_operations(response)
+        assert len(ops) == 1
+        assert ops[0]["action"] == "update_index"
+        assert "## 来源" in ops[0]["content"]
+
 
 class TestIngestRun:
     def test_full_ingest_flow(self):
@@ -125,5 +142,9 @@ ingest | 测试文章 — 更新了 1 个页面
 
             assert len(result["changes"]) > 0
             assert any("source-test_article" in c for c in result["changes"])
+            assert "index.md" in result["changes"]
+            index_content = read_index(wiki_dir)
+            assert "## 来源" in index_content
+            assert "source-test_article" in index_content
             log = read_log(wiki_dir)
             assert "测试文章" in log

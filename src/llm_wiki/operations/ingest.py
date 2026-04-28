@@ -59,7 +59,7 @@ def _parse_operations(response: str) -> list[dict]:
             }
         )
 
-    idx_pattern = r"### 更新 index\.md\n(.*?)(?=\n## 日志条目|\Z)"
+    idx_pattern = r"### (?:创建|更新) index\.md\n(.*?)(?=\n## 日志条目|\Z)"
     idx_match = re.search(idx_pattern, response, re.DOTALL)
     if idx_match:
         content = idx_match.group(1).strip()
