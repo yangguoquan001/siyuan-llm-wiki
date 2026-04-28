@@ -39,3 +39,20 @@ def test_write_default_schema_does_not_overwrite():
         schema_path.write_text("# 我的自定义 Schema", encoding="utf-8")
         write_default_schema(tmp)
         assert schema_path.read_text(encoding="utf-8") == "# 我的自定义 Schema"
+
+
+def test_load_schema_returns_default_when_file_empty():
+    with tempfile.TemporaryDirectory() as tmp:
+        schema_path = Path(tmp) / "schema.md"
+        schema_path.write_text("", encoding="utf-8")
+        result = load_schema(tmp)
+        assert result == DEFAULT_SCHEMA
+
+
+def test_write_default_schema_overwrites_empty_file():
+    with tempfile.TemporaryDirectory() as tmp:
+        schema_path = Path(tmp) / "schema.md"
+        schema_path.write_text("", encoding="utf-8")
+        write_default_schema(tmp)
+        content = schema_path.read_text(encoding="utf-8")
+        assert "Wiki 结构约定" in content
