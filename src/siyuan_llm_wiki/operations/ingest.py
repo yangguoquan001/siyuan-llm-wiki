@@ -19,12 +19,25 @@ def run_text(source_text: str, source_name: str = "对话存档") -> dict:
     return _ingest_text(source_text, source_name)
 
 
+def _build_existing_context() -> str:
+    """构建已有页面摘要（精简版），仅列出名称。"""
+    pages = wiki.list_pages()
+    if not pages:
+        return "（当前 Wiki 为空，还没有任何页面）"
+    lines = ["## 已有页面列表\n"]
+    for name in pages[:20]:
+        safe = name.replace("\\", "/")
+        lines.append(f"- [[{safe}]]")
+    return "\n".join(lines)
+
+
 def _ingest_text(source_text: str, source_name: str) -> dict:
     """核心摄入逻辑：给定文本和来源名，执行 LLM 整合 + 超链接解析。"""
     schema_content = schema.load_schema()
     index_content = wiki.read_index()
+    existing_context = _build_existing_context()
 
-    system_prompt = build_system_prompt(schema_content)
+    system_prompt = build_system_prompt(schema_content, existing_context)
     user_prompt = build_user_prompt(source_text, index_content, source_name)
 
     response = chat(system_prompt, user_prompt)
@@ -147,8 +160,6 @@ def _resolve_cross_references(new_page_ids: dict[str, str], index_id: str) -> No
 
 def _resolve_index_links(client, index_id: str, name_to_id: dict[str, str]) -> None:
     """解析 index 中的所有 [[页面名]] 为超链接，未命中时逐路径查找。"""
-    SUBDIRS = ["sources", "entities", "concepts", "comparisons", "overviews", "queries"]
-
     content = wiki.read_index()
     if not content:
         return
@@ -162,7 +173,7 @@ def _resolve_index_links(client, index_id: str, name_to_id: dict[str, str]) -> N
 
     # 逐个尝试子目录查找
     for name in unresolved:
-        for subdir in SUBDIRS:
+        for subdir in wiki.SUBDIRS:
             bid = wiki.get_page_id(f"{subdir}/{name}")
             if bid:
                 name_to_id[name] = bid
@@ -185,7 +196,7 @@ def _replace_wiki_links(content: str, name_to_id: dict[str, str]) -> str:
         for path, pid in name_to_id.items():
             if path.endswith(f"/{name}"):
                 return f"[{name}](siyuan://blocks/{pid})"
-        return m.group(0)
+        return name  # 无对应页面时去掉 [[ ]]，只保留文字
 
     return re.sub(r"\[\[(.+?)\]\]", replacer, content)
 

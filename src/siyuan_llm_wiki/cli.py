@@ -1,4 +1,4 @@
-"""CLI 入口 — 提供 init/ingest/query/lint/chat 命令。"""
+"""CLI 入口 — 提供 init/ingest/query/lint/resolve 命令。"""
 
 import os
 import sys
@@ -123,9 +123,9 @@ def ingest(source_file, raw_dir):
 
 @main.command()
 @click.argument("question")
-@click.option("--save", is_flag=True, help="将回答保存为 Wiki 页面")
+@click.option("--save", is_flag=True, help="强制保存回答（覆盖 LLM 的判断）")
 def query(question, save):
-    """查询 Wiki 知识库。
+    """查询 Wiki 知识库。LLM 自行判断回答是否有价值并自动沉淀。
 
     QUESTION: 你要查询的问题
     """
@@ -168,7 +168,7 @@ def lint():
 @main.command()
 def resolve():
     """将 index 中所有 [[页面名]] 转换为思源超链接。"""
-    from siyuan_llm_wiki.wiki import read_index, get_index_id, get_page_id
+    from siyuan_llm_wiki.wiki import read_index, get_index_id, get_page_id, SUBDIRS
     from siyuan_llm_wiki.siyuan import get_client
     from siyuan_llm_wiki.operations.ingest import _replace_wiki_links
 
@@ -189,7 +189,6 @@ def resolve():
     for m in re.finditer(r"\[\[(.+?)\]\]", content):
         refs.add(m.group(1))
 
-    SUBDIRS = ["sources", "entities", "concepts", "comparisons", "overviews", "queries"]
     name_to_id: dict[str, str] = {}
     for name in refs:
         for subdir in SUBDIRS:
@@ -207,140 +206,3 @@ def resolve():
         click.echo(f"完成。{resolved_count} 个链接已转换为 siyuan:// 格式。")
     else:
         click.echo("index 中没有需要转换的 [[链接]]。")
-
-
-@main.command()
-@click.option("--raw-dir", "-r", default=None, help="原始来源目录路径")
-def chat(raw_dir):
-    """交互式对话模式。"""
-    raw = raw_dir or os.getenv("LLM_RAW_DIR", str(Path.cwd() / "raw"))
-
-    from datetime import datetime
-    from siyuan_llm_wiki import wiki, schema
-    from siyuan_llm_wiki.llm import chat as llm_chat
-
-    schema_content = schema.load_schema()
-    index_content = wiki.read_index()
-
-    system_prompt = f"""你是一个 Wiki 知识库维护助手。你可以帮助用户：
-1. 回答关于 Wiki 内容的问题
-2. 建议如何组织知识
-3. 帮助摄入新来源（用户可以要求你处理 raw/ 目录中的文件）
-4. 检查 Wiki 的健康状况
-
-## Wiki 结构约定
-
-{schema_content}
-
-## 当前 Wiki 内容
-
-{index_content}
-
-请用中文回答。回答简洁明了。"""
-
-    click.echo("LLM Wiki 交互模式（思源笔记版）")
-    click.echo('输入问题开始对话，输入 "exit" 或 "quit" 退出，输入 "help" 查看帮助。')
-    click.echo()
-
-    history: list[tuple[str, str]] = []  # [(role, content), ...]
-
-    while True:
-        try:
-            user_input = click.prompt("你", prompt_suffix=" > ").strip()
-        except (EOFError, KeyboardInterrupt):
-            click.echo("\n再见！")
-            break
-
-        if not user_input:
-            continue
-
-        if user_input.lower() in ("exit", "quit", "q"):
-            click.echo("再见！")
-            break
-
-        if user_input.lower() == "help":
-            click.echo("可用操作：")
-            click.echo("  直接输入问题 — 查询 Wiki")
-            click.echo("  @ingest <文件名> — 摄入 raw/ 中的文件")
-            click.echo("  @lint — 执行健康检查")
-            click.echo("  @save [标题] — 将当前对话保存为 Wiki 页面")
-            click.echo("  exit / quit — 退出")
-            click.echo()
-            continue
-
-        if user_input.lower().startswith("@ingest "):
-            source_name = user_input[8:].strip()
-            source_path = str(Path(raw) / source_name)
-            if not Path(source_path).exists():
-                click.echo(f"文件不存在：{source_path}")
-                continue
-            from siyuan_llm_wiki.operations.ingest import run as ingest_run
-
-            click.echo("正在摄入...")
-            result = ingest_run(source_path, raw)
-            click.echo(f"完成。更新了 {len(result['changes'])} 个页面。")
-            click.echo()
-            continue
-
-        if user_input.lower() == "@lint":
-            from siyuan_llm_wiki.operations.lint import run as lint_run
-
-            click.echo("正在检查...")
-            report = lint_run()
-            click.echo(report)
-            click.echo()
-            continue
-
-        if user_input.lower().startswith("@save"):
-            _do_save(history, user_input[5:].strip())
-            continue
-
-        click.echo()
-        try:
-            response = llm_chat(system_prompt, user_input)
-            click.echo(response)
-            history.append(("你", user_input))
-            history.append(("助手", response))
-        except Exception as e:
-            click.echo(f"错误：{e}")
-        click.echo()
-
-
-def _do_save(history: list[tuple[str, str]], title: str = "") -> None:
-    """将对话作为来源文档，通过 ingest 管线提取实体/概念存入 Wiki。"""
-    if not history:
-        click.echo("对话历史为空，没有可保存的内容。")
-        return
-
-    from datetime import datetime
-    from siyuan_llm_wiki.operations.ingest import run_text
-
-    # 格式化对话为 markdown
-    lines = []
-    for role, text in history:
-        lines.append(f"## {role}")
-        lines.append("")
-        lines.append(text)
-        lines.append("")
-    source_text = "\n".join(lines)
-
-    source_name = f"对话-{_make_safe_title(title)}" if title else f"对话-{datetime.now().strftime('%Y%m%d-%H%M')}"
-
-    click.echo(f"正在从对话中提取知识...")
-    try:
-        result = run_text(source_text, source_name)
-        if result.get("summary"):
-            click.echo(f"摘要：{result['summary']}")
-        click.echo()
-        click.echo(f"更新了 {len(result['changes'])} 个页面：")
-        for change in result["changes"]:
-            click.echo(f"  - {change}")
-    except Exception as e:
-        click.echo(f"错误：{e}", err=True)
-
-
-def _make_safe_title(text: str) -> str:
-    import re
-    safe = re.sub(r'[\\/*?:"<>|]', "", text)
-    safe = re.sub(r"\s+", "-", safe)
-    return safe[:40]

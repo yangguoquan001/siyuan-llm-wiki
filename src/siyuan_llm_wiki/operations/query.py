@@ -4,11 +4,11 @@ import re
 from datetime import datetime
 from siyuan_llm_wiki import wiki, schema
 from siyuan_llm_wiki.llm import chat
-from siyuan_llm_wiki.prompts.query import build_system_prompt, build_user_prompt
+from siyuan_llm_wiki.prompts.query import build_system_prompt, build_user_prompt, build_retrieval_prompt
 
 
 def run(question: str, save: bool = False) -> dict:
-    """执行查询操作。"""
+    """执行查询操作。LLM 自行判断回答是否值得沉淀到 Wiki，自动 ingest。"""
     schema_content = schema.load_schema()
     index_content = wiki.read_index()
 
@@ -23,23 +23,11 @@ def run(question: str, save: bool = False) -> dict:
     sources = _extract_sources(response)
 
     saved = None
-    if save and answer:
-        from siyuan_llm_wiki.operations.ingest import run_text
+    should_save = save or _llm_decides_to_save(response)
+    if should_save and answer:
+        saved = _ingest_query_result(question, response)
 
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M")
-        safe_title = _make_safe_title(question[:40])
-        source_name = f"query-{safe_title}-{timestamp}"
-
-        # 将问答原文格式化为来源文本，交给 ingest 做深度提取
-        source_text = f"# 查询：{question}\n\n{response}"
-        result = run_text(source_text, source_name)
-        changes = result.get("changes", [])
-        if changes:
-            saved = changes[0]  # 第一个通常是来源摘要页
-        else:
-            # ingest 未产生变化时，直接保存原文
-            saved = f"queries/{source_name}"
-            wiki.write_page(saved, response)
+    wiki.append_log(f"query | {question[:60]}")
 
     return {"answer": answer, "sources": sources, "saved": saved}
 
@@ -50,8 +38,7 @@ def _find_relevant_pages(question: str) -> list[tuple[str, str]]:
     if not index.strip():
         return []
 
-    # 第一次 LLM 调用：让 LLM 从 index 中选出相关页面
-    retrieval_prompt = _build_retrieval_prompt(index, question)
+    retrieval_prompt = build_retrieval_prompt(index, question)
     retrieval_response = chat(
         system_prompt="你是一个知识库检索助手。根据 index 和问题，选出最相关的页面。只输出页面名称，每行一个，不要任何解释。",
         user_prompt=retrieval_prompt,
@@ -61,14 +48,11 @@ def _find_relevant_pages(question: str) -> list[tuple[str, str]]:
     if not page_names:
         return []
 
-    # 读取选中的页面内容（含子目录查找兜底）
-    SUBDIRS = ["sources", "entities", "concepts", "comparisons", "overviews", "queries"]
     results = []
     for name in page_names[:10]:
         content = wiki.read_page(name)
-        # 直接查失败时，尝试遍历子目录
         if not content.strip():
-            for sd in SUBDIRS:
+            for sd in wiki.SUBDIRS:
                 content = wiki.read_page(f"{sd}/{name}")
                 if content.strip():
                     name = f"{sd}/{name}"
@@ -79,28 +63,33 @@ def _find_relevant_pages(question: str) -> list[tuple[str, str]]:
     return results
 
 
-def _build_retrieval_prompt(index: str, question: str) -> str:
-    return f"""以下是 Wiki 知识库的索引。索引按分类组织（## 来源 / ## 实体 / ## 概念 / ## 对比 / ## 综述）。
+def _llm_decides_to_save(response: str) -> bool:
+    """解析 LLM 输出中的 ## 保存判断 节。"""
+    m = re.search(r"##\s*保存判断\s*[:：]?\s*(.+?)(?:\n|$)", response)
+    if m:
+        decision = m.group(1).strip().lower()
+        return decision.startswith("yes")
+    return False
 
-{index}
 
----
+def _ingest_query_result(question: str, response: str) -> str | None:
+    """将查询问答原文通过 ingest 管线深度提取到 Wiki。"""
+    from siyuan_llm_wiki.operations.ingest import run_text
+    from siyuan_llm_wiki.wiki import make_safe_title
 
-用户问题：{question}
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M")
+    safe_title = make_safe_title(question[:40])
+    source_name = f"query-{safe_title}-{timestamp}"
 
-请从索引中选出与问题最相关的页面。输出格式：每行一个完整路径，必须根据索引中的分类带上子目录前缀。
-categories 对应的子目录：
-  - 来源 → sources/xxx
-  - 实体 → entities/xxx
-  - 概念 → concepts/xxx
-  - 对比 → comparisons/xxx
-  - 综述 → overviews/xxx
-
-示例输出：
-concepts/交替注意力机制
-entities/DeepSeek
-
-只输出路径，不要编号、不要解释。最多 10 条。"""
+    source_text = f"# 查询：{question}\n\n{response}"
+    result = run_text(source_text, source_name)
+    changes = result.get("changes", [])
+    if changes:
+        return changes[0]
+    else:
+        saved = f"queries/{source_name}"
+        wiki.write_page(saved, response)
+        return saved
 
 
 def _parse_retrieval_response(response: str) -> list[str]:
@@ -108,7 +97,6 @@ def _parse_retrieval_response(response: str) -> list[str]:
     names = []
     for line in response.strip().split("\n"):
         line = line.strip()
-        # 跳过编号前缀如 "1. " 或 "- "
         line = re.sub(r"^\d+[\.\)、]\s*", "", line)
         line = line.lstrip("- ").strip()
         if line:
@@ -130,10 +118,3 @@ def _extract_sources(response: str) -> list[str]:
             if match:
                 sources.append(match.group(1))
     return sources
-
-
-def _make_safe_title(text: str) -> str:
-    """将问题转为安全的文件名片段。"""
-    safe = re.sub(r'[\\/*?:"<>|]', "", text)
-    safe = re.sub(r"\s+", "-", safe)
-    return safe[:40]

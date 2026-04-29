@@ -3,7 +3,6 @@
 import json
 import urllib.request
 import urllib.error
-from functools import cache
 from typing import Any
 
 

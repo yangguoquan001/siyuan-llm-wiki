@@ -1,10 +1,12 @@
 """Wiki 操作 — 通过思源笔记 API 读写页面、索引、日志。"""
 
+import re
 from datetime import datetime
 from siyuan_llm_wiki.siyuan import get_client, SiYuanError
 
 
 PDF_PREFIX = "/pages/"
+SUBDIRS = ["sources", "entities", "concepts", "comparisons", "overviews", "queries"]
 
 
 def _doc_path(page_name: str) -> str:
@@ -24,11 +26,11 @@ def init_wiki(raw_dir: str = "raw") -> None:
     """初始化 Wiki 结构：在思源笔记本中创建 schema/index/log 文档。"""
     from pathlib import Path
     import os
+    from siyuan_llm_wiki.schema import DEFAULT_SCHEMA
 
     client = get_client()
 
     for path, markdown in [
-        ("/schema", ""),
         ("/index", "# 索引\n"),
         ("/log", "# 操作日志\n"),
     ]:
@@ -36,6 +38,11 @@ def init_wiki(raw_dir: str = "raw") -> None:
             client.create_doc(path, markdown)
         except SiYuanError:
             pass
+
+    # schema 用 write_root_doc 确保内容写入（create_doc 对已存在路径不更新）
+    existing = read_root_doc("schema").strip()
+    if not existing or existing in ("schema", "# schema", "# /schema"):
+        write_root_doc("schema", DEFAULT_SCHEMA)
 
     raw = raw_dir or os.getenv("LLM_RAW_DIR", str(Path.cwd() / "raw"))
     Path(raw).mkdir(parents=True, exist_ok=True)
@@ -66,17 +73,17 @@ def write_page(name: str, content: str) -> str:
 
 def read_index() -> str:
     """读取索引文档。"""
-    return _read_root_doc("index")
+    return read_root_doc("index")
 
 
 def write_index(content: str) -> str:
     """写入索引文档，返回 block ID。"""
-    return _write_root_doc("index", content)
+    return write_root_doc("index", content)
 
 
 def read_log() -> str:
     """读取日志文档。"""
-    return _read_root_doc("log")
+    return read_root_doc("log")
 
 
 def append_log(entry: str) -> None:
@@ -160,7 +167,7 @@ def get_log_id() -> str:
 # ── 内部辅助 ──
 
 
-def _read_root_doc(name: str) -> str:
+def read_root_doc(name: str) -> str:
     client = get_client()
     ids = client.get_ids_by_hpath(f"/{name}")
     if ids:
@@ -168,7 +175,7 @@ def _read_root_doc(name: str) -> str:
     return ""
 
 
-def _write_root_doc(name: str, content: str) -> str:
+def write_root_doc(name: str, content: str) -> str:
     client = get_client()
     ids = client.get_ids_by_hpath(f"/{name}")
     if ids:
@@ -176,3 +183,9 @@ def _write_root_doc(name: str, content: str) -> str:
         return ids[0]
     else:
         return client.create_doc(f"/{name}", content)
+
+
+def make_safe_title(text: str) -> str:
+    safe = re.sub(r'[\\/*?:"<>|]', "", text)
+    safe = re.sub(r"\s+", "-", safe)
+    return safe[:40]

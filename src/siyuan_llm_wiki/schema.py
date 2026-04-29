@@ -1,6 +1,5 @@
 """Schema 管理 — 加载和生成 Wiki 结构约定文档。"""
 
-from siyuan_llm_wiki.siyuan import get_client, SiYuanError
 
 DEFAULT_SCHEMA = """# Wiki 结构约定
 
@@ -108,16 +107,18 @@ index 按类别组织：
 
 def load_schema() -> str:
     """加载思源笔记本中的 /schema 文档，如为空则返回默认 schema。"""
-    from siyuan_llm_wiki.wiki import _read_root_doc
+    from siyuan_llm_wiki.wiki import read_root_doc
 
-    content = _read_root_doc("schema").strip()
-    return content if content else DEFAULT_SCHEMA
+    content = read_root_doc("schema").strip()
+    if not content or content in ("schema", "# schema", "# /schema"):
+        return DEFAULT_SCHEMA
+    return content
 
 
 def write_default_schema() -> None:
     """如果 /schema 文档不存在或为空，写入默认 schema。"""
-    from siyuan_llm_wiki.wiki import _read_root_doc, _write_root_doc
+    from siyuan_llm_wiki.wiki import read_root_doc, write_root_doc
 
-    content = _read_root_doc("schema").strip()
-    if not content:
-        _write_root_doc("schema", DEFAULT_SCHEMA)
+    content = read_root_doc("schema").strip()
+    if not content or content in ("schema", "# schema", "# /schema"):
+        write_root_doc("schema", DEFAULT_SCHEMA)
