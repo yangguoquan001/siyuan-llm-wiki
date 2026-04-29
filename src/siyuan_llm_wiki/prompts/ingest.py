@@ -218,17 +218,20 @@ def build_user_prompt(source_text: str, index_content: str, file_name: str) -> s
 
 
 def _build_existing_context() -> str:
-    """构建已有页面的内容摘要，帮助 LLM 理解该更新哪些页面。"""
+    """构建已有页面摘要（精简版），仅列出名称避免 token 浪费。"""
     pages = list_pages()
     if not pages:
         return "（当前 Wiki 为空，还没有任何页面）"
 
-    lines = ["## 现有 Wiki 页面内容概览\n"]
-    for name in pages[:30]:  # 限制数量避免 token 溢出
+    lines = ["## 已有页面列表（详情见索引）\n"]
+    for name in pages[:20]:
+        # 只列名称，首行作为预览（最多 80 字）
+        safe = name.replace("\\", "/")
+        preview = ""
         content = read_page(name)
-        # 只取前 500 字作为概要
-        preview = content[:500] + "..." if len(content) > 500 else content
-        display_name = name.replace("\\", "/")
-        lines.append(f"### [[{display_name}]]\n{preview}\n")
+        if content:
+            first_line = content.strip().split("\n")[0]
+            preview = first_line[:80] + "..." if len(first_line) > 80 else first_line
+        lines.append(f"- [[{safe}]] {preview}")
 
     return "\n".join(lines)
