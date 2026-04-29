@@ -1,7 +1,7 @@
 """测试 schema.py — 使用模拟的思源 API。"""
 
 from unittest.mock import patch, MagicMock
-from llm_wiki.schema import DEFAULT_SCHEMA
+from siyuan_llm_wiki.schema import DEFAULT_SCHEMA
 
 
 def test_default_schema_is_chinese():
@@ -17,8 +17,8 @@ def test_load_schema_returns_default_when_no_file():
     mock_client.get_ids_by_hpath.return_value = []
     mock_client.export_md_content.return_value = ""
 
-    with patch("llm_wiki.wiki.get_client", return_value=mock_client):
-        from llm_wiki.schema import load_schema
+    with patch("siyuan_llm_wiki.wiki.get_client", return_value=mock_client):
+        from siyuan_llm_wiki.schema import load_schema
 
         result = load_schema()
         assert result == DEFAULT_SCHEMA
@@ -30,8 +30,8 @@ def test_load_schema_returns_doc_content():
     mock_client.get_ids_by_hpath.return_value = ["20250101000000-abc123"]
     mock_client.export_md_content.return_value = "# 自定义 Schema"
 
-    with patch("llm_wiki.wiki.get_client", return_value=mock_client):
-        from llm_wiki.schema import load_schema
+    with patch("siyuan_llm_wiki.wiki.get_client", return_value=mock_client):
+        from siyuan_llm_wiki.schema import load_schema
 
         result = load_schema()
         assert result == "# 自定义 Schema"
@@ -43,8 +43,8 @@ def test_write_default_schema_writes_when_empty():
     mock_client.get_ids_by_hpath.return_value = ["20250101000000-abc123"]
     mock_client.export_md_content.return_value = ""
 
-    with patch("llm_wiki.wiki.get_client", return_value=mock_client):
-        from llm_wiki.schema import write_default_schema
+    with patch("siyuan_llm_wiki.wiki.get_client", return_value=mock_client):
+        from siyuan_llm_wiki.schema import write_default_schema
 
         write_default_schema()
         # 应该调用了 update_block（因为文档已存在但内容为空）
@@ -57,8 +57,8 @@ def test_write_default_schema_does_not_overwrite():
     mock_client.get_ids_by_hpath.return_value = ["20250101000000-abc123"]
     mock_client.export_md_content.return_value = "# 我的自定义 Schema"
 
-    with patch("llm_wiki.wiki.get_client", return_value=mock_client):
-        from llm_wiki.schema import write_default_schema
+    with patch("siyuan_llm_wiki.wiki.get_client", return_value=mock_client):
+        from siyuan_llm_wiki.schema import write_default_schema
 
         write_default_schema()
         mock_client.update_block.assert_not_called()
@@ -71,8 +71,8 @@ def test_load_schema_returns_default_when_empty_string():
     mock_client.get_ids_by_hpath.return_value = ["20250101000000-abc123"]
     mock_client.export_md_content.return_value = "   "  # 空白
 
-    with patch("llm_wiki.wiki.get_client", return_value=mock_client):
-        from llm_wiki.schema import load_schema
+    with patch("siyuan_llm_wiki.wiki.get_client", return_value=mock_client):
+        from siyuan_llm_wiki.schema import load_schema
 
         result = load_schema()
         assert result == DEFAULT_SCHEMA

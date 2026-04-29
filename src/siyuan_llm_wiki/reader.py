@@ -51,7 +51,7 @@ def _read_docx(path: Path) -> str:
 
 
 def _read_image(path: Path) -> str:
-    from llm_wiki.llm import chat_with_image
+    from siyuan_llm_wiki.llm import chat_with_image
 
     prompt = "请详细描述这张图片中的所有文字内容和视觉信息。请优先提取图中可见的所有文字，包括标题、标注、数据等。"
     return chat_with_image(prompt, str(path))

@@ -1,7 +1,7 @@
 """测试 wiki.py — 通过模拟思源 API 验证 wiki 操作。"""
 
 from unittest.mock import patch, MagicMock
-from llm_wiki.wiki import (
+from siyuan_llm_wiki.wiki import (
     init_wiki,
     read_page,
     write_page,
@@ -78,7 +78,7 @@ def _make_mock_client():
 class TestInitWiki:
     def test_init_creates_root_docs(self):
         client = _make_mock_client()
-        with patch("llm_wiki.wiki.get_client", return_value=client):
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             with patch("pathlib.Path.mkdir"):
                 init_wiki("raw")
             # 应创建了 /schema, /index, /log
@@ -88,7 +88,7 @@ class TestInitWiki:
 class TestPageOperations:
     def test_write_and_read_page(self):
         client = _make_mock_client()
-        with patch("llm_wiki.wiki.get_client", return_value=client):
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             bid = write_page("test-page", "# 测试页面\n内容")
             assert bid
             content = read_page("test-page")
@@ -96,7 +96,7 @@ class TestPageOperations:
 
     def test_write_page_subdirectory(self):
         client = _make_mock_client()
-        with patch("llm_wiki.wiki.get_client", return_value=client):
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             bid = write_page("sub/dir/test", "# 子目录测试")
             assert bid
             content = read_page("sub/dir/test")
@@ -104,12 +104,12 @@ class TestPageOperations:
 
     def test_read_nonexistent_page_returns_empty(self):
         client = _make_mock_client()
-        with patch("llm_wiki.wiki.get_client", return_value=client):
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             assert read_page("nonexistent") == ""
 
     def test_write_existing_page_updates(self):
         client = _make_mock_client()
-        with patch("llm_wiki.wiki.get_client", return_value=client):
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             write_page("test", "# V1")
             bid2 = write_page("test", "# V2")
             assert bid2
@@ -120,7 +120,7 @@ class TestPageOperations:
 class TestIndexOperations:
     def test_write_and_read_index(self):
         client = _make_mock_client()
-        with patch("llm_wiki.wiki.get_client", return_value=client):
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             write_index("# 索引\n- [[page1]]")
             content = read_index()
             assert content == "# 索引\n- [[page1]]"
@@ -129,14 +129,14 @@ class TestIndexOperations:
 class TestLogOperations:
     def test_append_and_read_log(self):
         client = _make_mock_client()
-        with patch("llm_wiki.wiki.get_client", return_value=client):
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             append_log("ingest | 测试文档")
             log = read_log()
             assert "ingest | 测试文档" in log
 
     def test_multiple_entries(self):
         client = _make_mock_client()
-        with patch("llm_wiki.wiki.get_client", return_value=client):
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             append_log("ingest | 文档A")
             append_log("query | 问题B")
             log = read_log()
@@ -147,7 +147,7 @@ class TestLogOperations:
 class TestListPages:
     def test_list_pages_empty(self):
         client = _make_mock_client()
-        with patch("llm_wiki.wiki.get_client", return_value=client):
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             pages = list_pages()
             assert pages == []
 
@@ -155,21 +155,21 @@ class TestListPages:
 class TestGetPageId:
     def test_get_page_id(self):
         client = _make_mock_client()
-        with patch("llm_wiki.wiki.get_client", return_value=client):
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             bid = write_page("entities/test-entity", "# Entity")
             found = get_page_id("entities/test-entity")
             assert found == bid
 
     def test_get_page_id_nonexistent(self):
         client = _make_mock_client()
-        with patch("llm_wiki.wiki.get_client", return_value=client):
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             assert get_page_id("nonexistent") == ""
 
 
 class TestGetAllPageIds:
     def test_get_all_page_ids(self):
         client = _make_mock_client()
-        with patch("llm_wiki.wiki.get_client", return_value=client):
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             write_page("sources/src1", "# Source 1")
             write_page("entities/ent1", "# Entity 1")
             mapping = get_all_page_ids()

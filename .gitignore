@@ -1,2 +1,7 @@
 __pycache__/
 wiki/
+.venv/
+docs/
+raw/
+llm-wiki.md
+siyuan_api.md

@@ -1,6 +1,6 @@
 """摄入操作的中文 Prompt 模板。"""
 
-from llm_wiki.wiki import list_pages, read_page
+from siyuan_llm_wiki.wiki import list_pages, read_page
 
 
 def build_system_prompt(schema: str) -> str:

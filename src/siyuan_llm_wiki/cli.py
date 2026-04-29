@@ -37,7 +37,7 @@ def main(ctx, siyuan_url, siyuan_token, siyuan_notebook):
       SIYUAN_NOTEBOOK    思源笔记本 ID
       LLM_RAW_DIR        原始来源目录，默认 ./raw
     """
-    from llm_wiki.siyuan import set_config
+    from siyuan_llm_wiki.siyuan import set_config
 
     set_config(url=siyuan_url, token=siyuan_token, notebook=siyuan_notebook)
     ctx.ensure_object(dict)
@@ -48,8 +48,8 @@ def main(ctx, siyuan_url, siyuan_token, siyuan_notebook):
 @click.pass_context
 def init(ctx, raw_dir):
     """初始化 Wiki 结构（在思源笔记本中创建必要文档）。"""
-    from llm_wiki.wiki import init_wiki
-    from llm_wiki.schema import write_default_schema
+    from siyuan_llm_wiki.wiki import init_wiki
+    from siyuan_llm_wiki.schema import write_default_schema
 
     raw = raw_dir or os.getenv("LLM_RAW_DIR", str(Path.cwd() / "raw"))
     init_wiki(raw)
@@ -67,7 +67,7 @@ def init(ctx, raw_dir):
 @main.command()
 def notebooks():
     """列出思源笔记中所有笔记本及其 ID。"""
-    from llm_wiki.siyuan import list_notebooks
+    from siyuan_llm_wiki.siyuan import list_notebooks
 
     try:
         nbs = list_notebooks()
@@ -103,7 +103,7 @@ def ingest(source_file, raw_dir):
     """
     raw = raw_dir or os.getenv("LLM_RAW_DIR", str(Path.cwd() / "raw"))
 
-    from llm_wiki.operations.ingest import run
+    from siyuan_llm_wiki.operations.ingest import run
 
     click.echo(f"正在处理：{source_file}")
     click.echo()
@@ -129,7 +129,7 @@ def query(question, save):
 
     QUESTION: 你要查询的问题
     """
-    from llm_wiki.operations.query import run
+    from siyuan_llm_wiki.operations.query import run
 
     click.echo(f"查询：{question}")
     click.echo()
@@ -152,7 +152,7 @@ def query(question, save):
 @main.command()
 def lint():
     """检查 Wiki 的健康状况。"""
-    from llm_wiki.operations.lint import run
+    from siyuan_llm_wiki.operations.lint import run
 
     click.echo("正在进行 Wiki 健康检查...")
     click.echo()
@@ -171,8 +171,8 @@ def chat(raw_dir):
     """交互式对话模式。"""
     raw = raw_dir or os.getenv("LLM_RAW_DIR", str(Path.cwd() / "raw"))
 
-    from llm_wiki import wiki, schema
-    from llm_wiki.llm import chat as llm_chat
+    from siyuan_llm_wiki import wiki, schema
+    from siyuan_llm_wiki.llm import chat as llm_chat
 
     schema_content = schema.load_schema()
     index_content = wiki.read_index()
@@ -226,7 +226,7 @@ def chat(raw_dir):
             if not Path(source_path).exists():
                 click.echo(f"文件不存在：{source_path}")
                 continue
-            from llm_wiki.operations.ingest import run as ingest_run
+            from siyuan_llm_wiki.operations.ingest import run as ingest_run
 
             click.echo("正在摄入...")
             result = ingest_run(source_path, raw)
@@ -235,7 +235,7 @@ def chat(raw_dir):
             continue
 
         if user_input.lower() == "@lint":
-            from llm_wiki.operations.lint import run as lint_run
+            from siyuan_llm_wiki.operations.lint import run as lint_run
 
             click.echo("正在检查...")
             report = lint_run()

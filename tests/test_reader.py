@@ -1,6 +1,6 @@
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from llm_wiki.reader import read_file
+from siyuan_llm_wiki.reader import read_file
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -66,7 +66,7 @@ class TestDocxReader:
 class TestImageReader:
     def test_read_image_delegates_to_llm(self):
         with patch(
-            "llm_wiki.reader._read_image", return_value="图片中的文字内容"
+            "siyuan_llm_wiki.reader._read_image", return_value="图片中的文字内容"
         ) as mock_fn:
             with patch("pathlib.Path.exists", return_value=True):
                 content = read_file("test.png")

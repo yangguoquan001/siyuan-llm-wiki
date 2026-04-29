@@ -1,6 +1,6 @@
 import os
 from unittest.mock import patch, MagicMock
-from llm_wiki.llm import chat, get_client
+from siyuan_llm_wiki.llm import chat, get_client
 
 
 class TestGetClient:
@@ -8,7 +8,7 @@ class TestGetClient:
         with patch.dict(
             os.environ, {"LLM_PROVIDER": "openai", "OPENAI_API_KEY": "sk-test"}
         ):
-            with patch("llm_wiki.llm.OpenAI") as mock_openai:
+            with patch("siyuan_llm_wiki.llm.OpenAI") as mock_openai:
                 get_client()
                 mock_openai.assert_called_once()
 
@@ -16,7 +16,7 @@ class TestGetClient:
         with patch.dict(
             os.environ, {"LLM_PROVIDER": "anthropic", "ANTHROPIC_API_KEY": "sk-test"}
         ):
-            with patch("llm_wiki.llm.Anthropic") as mock_anthropic:
+            with patch("siyuan_llm_wiki.llm.Anthropic") as mock_anthropic:
                 get_client()
                 mock_anthropic.assert_called_once()
 
@@ -40,7 +40,7 @@ class TestChat:
             mock_response.choices[0].message.content = "你好，这是回复"
             mock_client.chat.completions.create.return_value = mock_response
 
-            with patch("llm_wiki.llm.get_client", return_value=mock_client):
+            with patch("siyuan_llm_wiki.llm.get_client", return_value=mock_client):
                 result = chat("你是一个助手", "你好")
                 assert result == "你好，这是回复"
 
@@ -54,7 +54,7 @@ class TestChat:
             mock_response.content[0].text = "你好，这是 Claude 的回复"
             mock_client.messages.create.return_value = mock_response
 
-            with patch("llm_wiki.llm.get_client", return_value=mock_client):
+            with patch("siyuan_llm_wiki.llm.get_client", return_value=mock_client):
                 result = chat("你是一个助手", "你好")
                 assert result == "你好，这是 Claude 的回复"
 
@@ -73,7 +73,7 @@ class TestChat:
                 mock_response,
             ]
 
-            with patch("llm_wiki.llm.get_client", return_value=mock_client):
+            with patch("siyuan_llm_wiki.llm.get_client", return_value=mock_client):
                 result = chat("你是一个助手", "你好")
                 assert result == "重试后成功"
                 assert mock_client.chat.completions.create.call_count == 3

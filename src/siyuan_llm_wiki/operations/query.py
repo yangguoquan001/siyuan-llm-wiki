@@ -2,10 +2,10 @@
 
 import re
 from datetime import datetime
-from llm_wiki import wiki, schema
-from llm_wiki.llm import chat
-from llm_wiki.prompts.query import build_system_prompt, build_user_prompt
-from llm_wiki.siyuan import get_client, SiYuanError
+from siyuan_llm_wiki import wiki, schema
+from siyuan_llm_wiki.llm import chat
+from siyuan_llm_wiki.prompts.query import build_system_prompt, build_user_prompt
+from siyuan_llm_wiki.siyuan import get_client, SiYuanError
 
 
 def run(question: str, save: bool = False) -> dict:

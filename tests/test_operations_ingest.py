@@ -1,7 +1,7 @@
 """测试摄入操作 — 解析 + 端到端流程。"""
 
 from unittest.mock import patch, MagicMock
-from llm_wiki.operations.ingest import _parse_operations, _extract_log_entry
+from siyuan_llm_wiki.operations.ingest import _parse_operations, _extract_log_entry
 
 
 class TestParseOperations:
@@ -180,15 +180,15 @@ class TestIngestRun:
 ingest | 测试文章 — 更新了 1 个页面
 """
         with (
-            patch("llm_wiki.operations.ingest.chat", return_value=mock_response),
-            patch("llm_wiki.wiki.get_client", return_value=client),
-            patch("llm_wiki.siyuan.get_client", return_value=client),
-            patch("llm_wiki.schema.load_schema", return_value="# Schema"),
+            patch("siyuan_llm_wiki.operations.ingest.chat", return_value=mock_response),
+            patch("siyuan_llm_wiki.wiki.get_client", return_value=client),
+            patch("siyuan_llm_wiki.siyuan.get_client", return_value=client),
+            patch("siyuan_llm_wiki.schema.load_schema", return_value="# Schema"),
             patch(
-                "llm_wiki.operations.ingest.reader.read_file", return_value="# 测试内容"
+                "siyuan_llm_wiki.operations.ingest.reader.read_file", return_value="# 测试内容"
             ),
         ):
-            from llm_wiki.operations.ingest import run
+            from siyuan_llm_wiki.operations.ingest import run
 
             result = run("test.md")
 

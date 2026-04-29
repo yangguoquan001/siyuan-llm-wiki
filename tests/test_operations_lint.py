@@ -70,11 +70,11 @@ class TestLintRun:
 1. 建议开始摄入第一批来源文档
 """
         with (
-            patch("llm_wiki.operations.lint.chat", return_value=mock_response),
-            patch("llm_wiki.wiki.get_client", return_value=client),
-            patch("llm_wiki.schema.load_schema", return_value="# Schema"),
+            patch("siyuan_llm_wiki.operations.lint.chat", return_value=mock_response),
+            patch("siyuan_llm_wiki.wiki.get_client", return_value=client),
+            patch("siyuan_llm_wiki.schema.load_schema", return_value="# Schema"),
         ):
-            from llm_wiki.operations.lint import run
+            from siyuan_llm_wiki.operations.lint import run
 
             result = run()
             assert "诊断报告" in result
@@ -92,11 +92,11 @@ class TestLintRun:
 无。
 """
         with (
-            patch("llm_wiki.operations.lint.chat", return_value=mock_response),
-            patch("llm_wiki.wiki.get_client", return_value=client),
-            patch("llm_wiki.schema.load_schema", return_value="# Schema"),
+            patch("siyuan_llm_wiki.operations.lint.chat", return_value=mock_response),
+            patch("siyuan_llm_wiki.wiki.get_client", return_value=client),
+            patch("siyuan_llm_wiki.schema.load_schema", return_value="# Schema"),
         ):
-            from llm_wiki.operations.lint import run
+            from siyuan_llm_wiki.operations.lint import run
 
             result = run()
             assert "诊断报告" in result or "缺失" in result

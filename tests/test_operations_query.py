@@ -68,12 +68,12 @@ class TestQueryRun:
 建议先摄入相关来源文档。
 """
         with (
-            patch("llm_wiki.operations.query.chat", return_value=mock_response),
-            patch("llm_wiki.wiki.get_client", return_value=client),
-            patch("llm_wiki.operations.query.get_client", return_value=client),
-            patch("llm_wiki.schema.load_schema", return_value="# Schema"),
+            patch("siyuan_llm_wiki.operations.query.chat", return_value=mock_response),
+            patch("siyuan_llm_wiki.wiki.get_client", return_value=client),
+            patch("siyuan_llm_wiki.operations.query.get_client", return_value=client),
+            patch("siyuan_llm_wiki.schema.load_schema", return_value="# Schema"),
         ):
-            from llm_wiki.operations.query import run
+            from siyuan_llm_wiki.operations.query import run
 
             result = run("什么是测试？")
             assert "当前 Wiki 为空" in result["answer"]
@@ -89,12 +89,12 @@ class TestQueryRun:
 - [[概念A]]: 提供了关于概念A的基本信息
 """
         with (
-            patch("llm_wiki.operations.query.chat", return_value=mock_response),
-            patch("llm_wiki.wiki.get_client", return_value=client),
-            patch("llm_wiki.operations.query.get_client", return_value=client),
-            patch("llm_wiki.schema.load_schema", return_value="# Schema"),
+            patch("siyuan_llm_wiki.operations.query.chat", return_value=mock_response),
+            patch("siyuan_llm_wiki.wiki.get_client", return_value=client),
+            patch("siyuan_llm_wiki.operations.query.get_client", return_value=client),
+            patch("siyuan_llm_wiki.schema.load_schema", return_value="# Schema"),
         ):
-            from llm_wiki.operations.query import run
+            from siyuan_llm_wiki.operations.query import run
 
             result = run("概念A是什么？")
             assert "概念A" in result["answer"]
@@ -111,12 +111,12 @@ class TestQueryRunWithSave:
 - [[概念B]]: 提供了信息
 """
         with (
-            patch("llm_wiki.operations.query.chat", return_value=mock_response),
-            patch("llm_wiki.wiki.get_client", return_value=client),
-            patch("llm_wiki.operations.query.get_client", return_value=client),
-            patch("llm_wiki.schema.load_schema", return_value="# Schema"),
+            patch("siyuan_llm_wiki.operations.query.chat", return_value=mock_response),
+            patch("siyuan_llm_wiki.wiki.get_client", return_value=client),
+            patch("siyuan_llm_wiki.operations.query.get_client", return_value=client),
+            patch("siyuan_llm_wiki.schema.load_schema", return_value="# Schema"),
         ):
-            from llm_wiki.operations.query import run
+            from siyuan_llm_wiki.operations.query import run
 
             result = run("问题？", save=True)
             assert result["saved"]

@@ -1,7 +1,7 @@
 [project]
-name = "llm-wiki"
+name = "siyuan-llm-wiki"
 version = "0.1.0"
-description = "基于 LLM Wiki 方法论的个人知识库工具"
+description = "基于 LLM Wiki 方法论的思源笔记知识库工具"
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.1",
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-llm-wiki = "llm_wiki.cli:main"
+siyuan-llm-wiki = "siyuan_llm_wiki.cli:main"
 
 [build-system]
 requires = ["hatchling"]

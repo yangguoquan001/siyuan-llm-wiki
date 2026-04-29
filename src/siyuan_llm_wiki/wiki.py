@@ -1,7 +1,7 @@
 """Wiki 操作 — 通过思源笔记 API 读写页面、索引、日志。"""
 
 from datetime import datetime
-from llm_wiki.siyuan import get_client, SiYuanError
+from siyuan_llm_wiki.siyuan import get_client, SiYuanError
 
 
 PDF_PREFIX = "/pages/"

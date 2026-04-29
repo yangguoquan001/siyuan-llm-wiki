@@ -2,9 +2,9 @@
 
 import re
 from pathlib import Path
-from llm_wiki import wiki, schema, reader
-from llm_wiki.llm import chat
-from llm_wiki.prompts.ingest import build_system_prompt, build_user_prompt
+from siyuan_llm_wiki import wiki, schema, reader
+from siyuan_llm_wiki.llm import chat
+from siyuan_llm_wiki.prompts.ingest import build_system_prompt, build_user_prompt
 
 
 def run(source_path: str, raw_dir: str = "raw") -> dict:
@@ -76,7 +76,7 @@ def _parse_operations(response: str) -> list[dict]:
 
 def _resolve_cross_references(new_page_ids: dict[str, str], index_id: str) -> None:
     """第二遍：将 [[页面名]] 替换为 [页面名](siyuan://blocks/{id})。"""
-    from llm_wiki.siyuan import get_client
+    from siyuan_llm_wiki.siyuan import get_client
 
     client = get_client()
 
