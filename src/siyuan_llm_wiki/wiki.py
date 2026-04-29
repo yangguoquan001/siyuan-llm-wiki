@@ -28,7 +28,6 @@ def init_wiki(raw_dir: str = "raw") -> None:
     client = get_client()
 
     for path, markdown in [
-        ("/schema", ""),
         ("/index", "# 索引\n"),
         ("/log", "# 操作日志\n"),
     ]:

@@ -81,8 +81,8 @@ class TestInitWiki:
         with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
             with patch("pathlib.Path.mkdir"):
                 init_wiki("raw")
-            # 应创建了 /schema, /index, /log
-            assert client.create_doc.call_count >= 3
+            # 应创建 /index, /log（/schema 由 write_default_schema 负责）
+            assert client.create_doc.call_count >= 2
 
 
 class TestPageOperations:

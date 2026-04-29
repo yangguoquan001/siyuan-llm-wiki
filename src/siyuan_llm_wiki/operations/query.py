@@ -61,10 +61,18 @@ def _find_relevant_pages(question: str) -> list[tuple[str, str]]:
     if not page_names:
         return []
 
-    # 读取选中的页面内容
+    # 读取选中的页面内容（含子目录查找兜底）
+    SUBDIRS = ["sources", "entities", "concepts", "comparisons", "overviews", "queries"]
     results = []
     for name in page_names[:10]:
         content = wiki.read_page(name)
+        # 直接查失败时，尝试遍历子目录
+        if not content.strip():
+            for sd in SUBDIRS:
+                content = wiki.read_page(f"{sd}/{name}")
+                if content.strip():
+                    name = f"{sd}/{name}"
+                    break
         if content.strip():
             results.append((name, content))
 
@@ -72,7 +80,7 @@ def _find_relevant_pages(question: str) -> list[tuple[str, str]]:
 
 
 def _build_retrieval_prompt(index: str, question: str) -> str:
-    return f"""以下是 Wiki 知识库的索引。每行格式为：`- [[页面名]]: 一句话描述`。
+    return f"""以下是 Wiki 知识库的索引。索引按分类组织（## 来源 / ## 实体 / ## 概念 / ## 对比 / ## 综述）。
 
 {index}
 
@@ -80,10 +88,19 @@ def _build_retrieval_prompt(index: str, question: str) -> str:
 
 用户问题：{question}
 
-请从索引中选出与问题最相关的页面（最多 10 个），每个一行，只输出页面名：
-entities/xxx
-concepts/xxx
-sources/xxx"""
+请从索引中选出与问题最相关的页面。输出格式：每行一个完整路径，必须根据索引中的分类带上子目录前缀。
+categories 对应的子目录：
+  - 来源 → sources/xxx
+  - 实体 → entities/xxx
+  - 概念 → concepts/xxx
+  - 对比 → comparisons/xxx
+  - 综述 → overviews/xxx
+
+示例输出：
+concepts/交替注意力机制
+entities/DeepSeek
+
+只输出路径，不要编号、不要解释。最多 10 条。"""
 
 
 def _parse_retrieval_response(response: str) -> list[str]:

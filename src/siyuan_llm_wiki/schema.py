@@ -120,9 +120,17 @@ def load_schema() -> str:
 
 
 def write_default_schema() -> None:
-    """如果 /schema 文档为空，写入默认 schema。"""
-    from siyuan_llm_wiki.wiki import _read_root_doc, _write_root_doc
+    """如果 /schema 文档不存在或为空，写入默认 schema。"""
+    from siyuan_llm_wiki.wiki import _read_root_doc
+    from siyuan_llm_wiki.siyuan import get_client, SiYuanError
 
     content = _read_root_doc("schema").strip()
-    if not content:
-        _write_root_doc("schema", DEFAULT_SCHEMA)
+    if content:
+        return  # 已有内容，不覆盖
+
+    client = get_client()
+    ids = client.get_ids_by_hpath("/schema")
+    if ids:
+        # 存在但为空 → 删除后重建（createDocWithMd 不会覆盖已有文档）
+        client.delete_block(ids[0])
+    client.create_doc("/schema", DEFAULT_SCHEMA)
