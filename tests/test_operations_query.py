@@ -117,14 +117,22 @@ class TestQueryRunWithSave:
     def test_save_answer_as_page(self):
         client = _make_mock_client()
 
-        mock_response = """## 回答
+        chat_retrieval = "concepts/概念B"
+        chat_answer = """## 回答
 回答内容...
 
 ## 引用来源
 - [[概念B]]: 提供了信息
 """
         with (
-            patch("siyuan_llm_wiki.operations.query.chat", return_value=mock_response),
+            patch(
+                "siyuan_llm_wiki.operations.query.chat",
+                side_effect=[chat_retrieval, chat_answer],
+            ),
+            patch(
+                "siyuan_llm_wiki.operations.ingest.run_text",
+                return_value={"changes": ["sources/source-query-xxx"], "summary": "ok"},
+            ),
             patch("siyuan_llm_wiki.wiki.get_client", return_value=client),
             patch("siyuan_llm_wiki.schema.load_schema", return_value="# Schema"),
         ):
@@ -132,4 +140,4 @@ class TestQueryRunWithSave:
 
             result = run("问题？", save=True)
             assert result["saved"]
-            assert "queries/" in result["saved"]
+            assert "source" in result["saved"] or "query" in result["saved"]

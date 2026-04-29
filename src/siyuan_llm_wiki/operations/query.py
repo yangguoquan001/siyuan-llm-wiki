@@ -24,21 +24,22 @@ def run(question: str, save: bool = False) -> dict:
 
     saved = None
     if save and answer:
+        from siyuan_llm_wiki.operations.ingest import run_text
+
         timestamp = datetime.now().strftime("%Y%m%d-%H%M")
         safe_title = _make_safe_title(question[:40])
-        page_name = f"queries/query-{safe_title}-{timestamp}"
-        wiki.write_page(page_name, response)
-        wiki.append_log(f"query | {question[:50]} — 回答已保存为 {page_name}")
+        source_name = f"query-{safe_title}-{timestamp}"
 
-        # 更新索引
-        index_content = wiki.read_index()
-        display_name = f"query-{safe_title}-{timestamp}"
-        new_entry = f"- [[{display_name}]]: {question[:60]}\n"
-        if "## 查询存档" not in index_content:
-            index_content += "\n## 查询存档\n"
-        index_content += new_entry
-        wiki.write_index(index_content)
-        saved = page_name
+        # 将问答原文格式化为来源文本，交给 ingest 做深度提取
+        source_text = f"# 查询：{question}\n\n{response}"
+        result = run_text(source_text, source_name)
+        changes = result.get("changes", [])
+        if changes:
+            saved = changes[0]  # 第一个通常是来源摘要页
+        else:
+            # ingest 未产生变化时，直接保存原文
+            saved = f"queries/{source_name}"
+            wiki.write_page(saved, response)
 
     return {"answer": answer, "sources": sources, "saved": saved}
 
