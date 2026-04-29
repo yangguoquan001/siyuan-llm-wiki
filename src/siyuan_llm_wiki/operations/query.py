@@ -44,92 +44,58 @@ def run(question: str, save: bool = False) -> dict:
 
 
 def _find_relevant_pages(question: str) -> list[tuple[str, str]]:
-    """从 index 中定位相关页面，再读取页面内容。"""
+    """由 LLM 根据 index 语义选出相关页面，再读取页面内容。"""
     index = wiki.read_index()
     if not index.strip():
         return []
 
-    keywords = _extract_keywords(question)
-    # 解析 index 中的每一行，提取 [[页面名]] 或 [页面名](siyuan://...) 格式
-    refs = _parse_index_refs(index)
+    # 第一次 LLM 调用：让 LLM 从 index 中选出相关页面
+    retrieval_prompt = _build_retrieval_prompt(index, question)
+    retrieval_response = chat(
+        system_prompt="你是一个知识库检索助手。根据 index 和问题，选出最相关的页面。只输出页面名称，每行一个，不要任何解释。",
+        user_prompt=retrieval_prompt,
+    )
 
-    # 按关键词匹配 index 条目
-    matched = []
-    for name, line_text in refs:
-        if any(kw in line_text for kw in keywords) or not keywords:
-            matched.append(name)
+    page_names = _parse_retrieval_response(retrieval_response)
+    if not page_names:
+        return []
 
-    # 去重，限制数量
-    seen = set()
+    # 读取选中的页面内容
     results = []
-    for name in matched:
-        if name not in seen:
-            seen.add(name)
-            content = wiki.read_page(name)
-            if content.strip():
-                results.append((name, content))
-            if len(results) >= 10:
-                break
-
-    # 无匹配时：返回所有非空页面（<=5 个时带内容）
-    if not results:
-        page_names = wiki.list_pages()
-        for name in page_names[:10]:
-            content = wiki.read_page(name)
-            if content.strip():
-                results.append((name, content))
+    for name in page_names[:10]:
+        content = wiki.read_page(name)
+        if content.strip():
+            results.append((name, content))
 
     return results
 
 
-def _parse_index_refs(index_content: str) -> list[tuple[str, str]]:
-    """从 index 内容中解析出所有页面引用。
-    
-    index 中每行格式如：
-    - [[GLU激活函数]]: 描述文字
-    - [GLU激活函数](siyuan://blocks/xxx): 描述文字
-    
-    返回 [(页面名, 整行文本), ...]
-    """
-    refs = []
-    for line in index_content.split("\n"):
+def _build_retrieval_prompt(index: str, question: str) -> str:
+    return f"""以下是 Wiki 知识库的索引。每行格式为：`- [[页面名]]: 一句话描述`。
+
+{index}
+
+---
+
+用户问题：{question}
+
+请从索引中选出与问题最相关的页面（最多 10 个），每个一行，只输出页面名：
+entities/xxx
+concepts/xxx
+sources/xxx"""
+
+
+def _parse_retrieval_response(response: str) -> list[str]:
+    """解析 LLM 返回的页面名列表。"""
+    names = []
+    for line in response.strip().split("\n"):
         line = line.strip()
-        if not line or not line.startswith("-"):
-            continue
-        # 匹配 [页面名](siyuan://...) 格式
-        m = re.search(r"\[(.+?)\]\(siyuan://", line)
-        if m:
-            refs.append((m.group(1), line))
-            continue
-        # 匹配 [[页面名]] 格式
-        m = re.search(r"\[\[(.+?)\]\]", line)
-        if m:
-            refs.append((m.group(1), line))
-    return refs
-
-
-def _extract_keywords(text: str) -> list[str]:
-    """从问题中提取关键词：先按标点拆分，再对中文做 2-3 字滑动窗口补充。"""
-    # 按标点/空白拆分
-    tokens = re.split(r"[\s,，。！？、；：" "''（）\u3000]+", text)
-    result = []
-    for token in tokens:
-        if len(token) >= 2:
-            result.append(token)
-        # 对含中文的 token 生成 2-3 字 ngram，提升召回
-        cjk = re.findall(r"[\u4e00-\u9fff]+", token)
-        for seg in cjk:
-            for n in (2, 3):
-                for i in range(len(seg) - n + 1):
-                    result.append(seg[i : i + n])
-    # 去重，限制数量
-    seen = set()
-    unique = []
-    for w in result:
-        if w not in seen:
-            seen.add(w)
-            unique.append(w)
-    return unique[:15]
+        # 跳过编号前缀如 "1. " 或 "- "
+        line = re.sub(r"^\d+[\.\)、]\s*", "", line)
+        line = line.lstrip("- ").strip()
+        if line:
+            names.append(line)
+    return names
 
 
 def _extract_section(response: str, section: str) -> str:

@@ -92,14 +92,18 @@ class TestQueryRun:
 - [[概念A]]: 一个测试概念
 """)
 
-        mock_response = """## 回答
+        chat_retrieval = "concepts/概念A"
+        chat_answer = """## 回答
 根据 Wiki 中概念A的记录，相关内容如下...
 
 ## 引用来源
 - [[概念A]]: 提供了关于概念A的基本信息
 """
         with (
-            patch("siyuan_llm_wiki.operations.query.chat", return_value=mock_response),
+            patch(
+                "siyuan_llm_wiki.operations.query.chat",
+                side_effect=[chat_retrieval, chat_answer],
+            ),
             patch("siyuan_llm_wiki.wiki.get_client", return_value=client),
             patch("siyuan_llm_wiki.schema.load_schema", return_value="# Schema"),
         ):
