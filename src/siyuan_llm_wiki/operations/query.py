@@ -5,7 +5,6 @@ from datetime import datetime
 from siyuan_llm_wiki import wiki, schema
 from siyuan_llm_wiki.llm import chat
 from siyuan_llm_wiki.prompts.query import build_system_prompt, build_user_prompt
-from siyuan_llm_wiki.siyuan import get_client, SiYuanError
 
 
 def run(question: str, save: bool = False) -> dict:
@@ -45,49 +44,92 @@ def run(question: str, save: bool = False) -> dict:
 
 
 def _find_relevant_pages(question: str) -> list[tuple[str, str]]:
-    """通过思源 SQL 搜索相关页面。"""
-    client = get_client()
+    """从 index 中定位相关页面，再读取页面内容。"""
+    index = wiki.read_index()
+    if not index.strip():
+        return []
 
-    # 从问题中提取关键词用于 SQL LIKE 查询
     keywords = _extract_keywords(question)
-    if not keywords:
-        # 回退：列出所有页面
-        page_names = wiki.list_pages()
-        if len(page_names) <= 5:
-            return [(n, wiki.read_page(n)) for n in page_names]
-        return []
+    # 解析 index 中的每一行，提取 [[页面名]] 或 [页面名](siyuan://...) 格式
+    refs = _parse_index_refs(index)
 
-    # 构建 SQL 条件
-    conditions = " OR ".join(f"content LIKE '%{kw}%'" for kw in keywords[:5])
-    try:
-        rows = client.sql_query(
-            f"SELECT id, hpath FROM blocks "
-            f"WHERE type = 'd' AND hpath LIKE '/pages/%' "
-            f"AND ({conditions}) "
-            f"LIMIT 10"
-        )
-    except SiYuanError:
-        return []
+    # 按关键词匹配 index 条目
+    matched = []
+    for name, line_text in refs:
+        if any(kw in line_text for kw in keywords) or not keywords:
+            matched.append(name)
 
-    results = []
+    # 去重，限制数量
     seen = set()
-    for row in rows:
-        hpath = row.get("hpath", "")
-        if hpath.startswith("/pages/") and hpath != "/pages/":
-            name = hpath[len("/pages/") :]
-            if name and name not in seen:
-                seen.add(name)
-                content = wiki.read_page(name)
+    results = []
+    for name in matched:
+        if name not in seen:
+            seen.add(name)
+            content = wiki.read_page(name)
+            if content.strip():
+                results.append((name, content))
+            if len(results) >= 10:
+                break
+
+    # 无匹配时：返回所有非空页面（<=5 个时带内容）
+    if not results:
+        page_names = wiki.list_pages()
+        for name in page_names[:10]:
+            content = wiki.read_page(name)
+            if content.strip():
                 results.append((name, content))
 
     return results
 
 
+def _parse_index_refs(index_content: str) -> list[tuple[str, str]]:
+    """从 index 内容中解析出所有页面引用。
+    
+    index 中每行格式如：
+    - [[GLU激活函数]]: 描述文字
+    - [GLU激活函数](siyuan://blocks/xxx): 描述文字
+    
+    返回 [(页面名, 整行文本), ...]
+    """
+    refs = []
+    for line in index_content.split("\n"):
+        line = line.strip()
+        if not line or not line.startswith("-"):
+            continue
+        # 匹配 [页面名](siyuan://...) 格式
+        m = re.search(r"\[(.+?)\]\(siyuan://", line)
+        if m:
+            refs.append((m.group(1), line))
+            continue
+        # 匹配 [[页面名]] 格式
+        m = re.search(r"\[\[(.+?)\]\]", line)
+        if m:
+            refs.append((m.group(1), line))
+    return refs
+
+
 def _extract_keywords(text: str) -> list[str]:
-    """从问题中提取关键词用于 SQL 搜索。"""
-    # 简单分词：按常见分隔符拆分，取长度 >= 2 的词
-    words = re.split(r"[\s，。！？、；：" "''（）\u3000]+", text)
-    return [w for w in words if len(w) >= 2][:10]
+    """从问题中提取关键词：先按标点拆分，再对中文做 2-3 字滑动窗口补充。"""
+    # 按标点/空白拆分
+    tokens = re.split(r"[\s,，。！？、；：" "''（）\u3000]+", text)
+    result = []
+    for token in tokens:
+        if len(token) >= 2:
+            result.append(token)
+        # 对含中文的 token 生成 2-3 字 ngram，提升召回
+        cjk = re.findall(r"[\u4e00-\u9fff]+", token)
+        for seg in cjk:
+            for n in (2, 3):
+                for i in range(len(seg) - n + 1):
+                    result.append(seg[i : i + n])
+    # 去重，限制数量
+    seen = set()
+    unique = []
+    for w in result:
+        if w not in seen:
+            seen.add(w)
+            unique.append(w)
+    return unique[:15]
 
 
 def _extract_section(response: str, section: str) -> str:

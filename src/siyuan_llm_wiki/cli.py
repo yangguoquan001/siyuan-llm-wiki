@@ -166,6 +166,50 @@ def lint():
 
 
 @main.command()
+def resolve():
+    """将 index 中所有 [[页面名]] 转换为思源超链接。"""
+    from siyuan_llm_wiki.wiki import read_index, get_index_id, get_page_id
+    from siyuan_llm_wiki.siyuan import get_client
+    from siyuan_llm_wiki.operations.ingest import _replace_wiki_links
+
+    click.echo("正在解析 index 超链接...")
+
+    index_id = get_index_id()
+    if not index_id:
+        click.echo("错误：index 文档不存在，请先运行 init 和 ingest。", err=True)
+        sys.exit(1)
+
+    content = read_index()
+    if not content.strip():
+        click.echo("index 为空，无需处理。")
+        return
+
+    import re
+    refs = set()
+    for m in re.finditer(r"\[\[(.+?)\]\]", content):
+        refs.add(m.group(1))
+
+    SUBDIRS = ["sources", "entities", "concepts", "comparisons", "overviews", "queries"]
+    name_to_id: dict[str, str] = {}
+    for name in refs:
+        for subdir in SUBDIRS:
+            path = f"{subdir}/{name}"
+            bid = get_page_id(path)
+            if bid:
+                name_to_id[name] = bid
+                break
+
+    resolved = _replace_wiki_links(content, name_to_id)
+    if resolved != content:
+        client = get_client()
+        client.update_block(index_id, resolved)
+        resolved_count = sum(1 for name in refs if name in name_to_id)
+        click.echo(f"完成。{resolved_count} 个链接已转换为 siyuan:// 格式。")
+    else:
+        click.echo("index 中没有需要转换的 [[链接]]。")
+
+
+@main.command()
 @click.option("--raw-dir", "-r", default=None, help="原始来源目录路径")
 def chat(raw_dir):
     """交互式对话模式。"""

@@ -1,4 +1,4 @@
-"""测试查询操作。"""
+"""测试查询操作 — 基于 index 检索。"""
 
 from unittest.mock import patch, MagicMock
 
@@ -70,7 +70,6 @@ class TestQueryRun:
         with (
             patch("siyuan_llm_wiki.operations.query.chat", return_value=mock_response),
             patch("siyuan_llm_wiki.wiki.get_client", return_value=client),
-            patch("siyuan_llm_wiki.operations.query.get_client", return_value=client),
             patch("siyuan_llm_wiki.schema.load_schema", return_value="# Schema"),
         ):
             from siyuan_llm_wiki.operations.query import run
@@ -82,6 +81,17 @@ class TestQueryRun:
     def test_query_with_content(self):
         client = _make_mock_client()
 
+        # 设置 index 包含 [[概念A]] 条目
+        from siyuan_llm_wiki.wiki import write_index, write_page
+
+        with patch("siyuan_llm_wiki.wiki.get_client", return_value=client):
+            write_page("concepts/概念A", "# 概念A\n\n这是概念A的详细内容。")
+            write_index("""# 索引
+
+## 概念
+- [[概念A]]: 一个测试概念
+""")
+
         mock_response = """## 回答
 根据 Wiki 中概念A的记录，相关内容如下...
 
@@ -91,7 +101,6 @@ class TestQueryRun:
         with (
             patch("siyuan_llm_wiki.operations.query.chat", return_value=mock_response),
             patch("siyuan_llm_wiki.wiki.get_client", return_value=client),
-            patch("siyuan_llm_wiki.operations.query.get_client", return_value=client),
             patch("siyuan_llm_wiki.schema.load_schema", return_value="# Schema"),
         ):
             from siyuan_llm_wiki.operations.query import run
@@ -113,7 +122,6 @@ class TestQueryRunWithSave:
         with (
             patch("siyuan_llm_wiki.operations.query.chat", return_value=mock_response),
             patch("siyuan_llm_wiki.wiki.get_client", return_value=client),
-            patch("siyuan_llm_wiki.operations.query.get_client", return_value=client),
             patch("siyuan_llm_wiki.schema.load_schema", return_value="# Schema"),
         ):
             from siyuan_llm_wiki.operations.query import run

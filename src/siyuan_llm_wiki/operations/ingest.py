@@ -82,15 +82,22 @@ def _resolve_cross_references(new_page_ids: dict[str, str], index_id: str) -> No
 
     name_to_id: dict[str, str] = {}
 
+    # 1. 新创建/更新的页面
     for path, bid in new_page_ids.items():
         leaf = path.rsplit("/", 1)[-1] if "/" in path else path
         name_to_id[leaf] = bid
 
-    for path, bid in wiki.get_all_page_ids().items():
+    # 2. 已有页面（通过 SQL 批量获取 + 逐个查找作为兜底）
+    try:
+        existing = wiki.get_all_page_ids()
+    except Exception:
+        existing = {}
+    for path, bid in existing.items():
         leaf = path.rsplit("/", 1)[-1] if "/" in path else path
         if leaf not in name_to_id:
             name_to_id[leaf] = bid
 
+    # 3. 新页面内容中的引用
     for path, bid in new_page_ids.items():
         content = wiki.read_page(path)
         if content:
@@ -98,12 +105,37 @@ def _resolve_cross_references(new_page_ids: dict[str, str], index_id: str) -> No
             if resolved != content:
                 client.update_block(bid, resolved)
 
+    # 4. index 文档（最关键的解析步骤）
     if index_id:
-        content = wiki.read_index()
-        if content:
-            resolved = _replace_wiki_links(content, name_to_id)
-            if resolved != content:
-                client.update_block(index_id, resolved)
+        _resolve_index_links(client, index_id, name_to_id)
+
+
+def _resolve_index_links(client, index_id: str, name_to_id: dict[str, str]) -> None:
+    """解析 index 中的所有 [[页面名]] 为超链接，未命中时逐路径查找。"""
+    SUBDIRS = ["sources", "entities", "concepts", "comparisons", "overviews", "queries"]
+
+    content = wiki.read_index()
+    if not content:
+        return
+
+    # 找出 index 中尚未映射的 [[页面名]]
+    unresolved = set()
+    for m in re.finditer(r"\[\[(.+?)\]\]", content):
+        name = m.group(1)
+        if name not in name_to_id:
+            unresolved.add(name)
+
+    # 逐个尝试子目录查找
+    for name in unresolved:
+        for subdir in SUBDIRS:
+            bid = wiki.get_page_id(f"{subdir}/{name}")
+            if bid:
+                name_to_id[name] = bid
+                break
+
+    resolved = _replace_wiki_links(content, name_to_id)
+    if resolved != content:
+        client.update_block(index_id, resolved)
 
 
 def _replace_wiki_links(content: str, name_to_id: dict[str, str]) -> str:
