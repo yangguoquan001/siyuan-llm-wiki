@@ -11,11 +11,21 @@ def run(source_path: str, raw_dir: str = "raw") -> dict:
     """执行摄入操作：读取来源 → 调用 LLM → 更新思源 Wiki（含两遍超链接处理）。"""
     source_text = reader.read_file(source_path)
     file_name = Path(source_path).name
+    return _ingest_text(source_text, file_name)
+
+
+def run_text(source_text: str, source_name: str = "对话存档") -> dict:
+    """用纯文本（非文件）执行摄入，用于保存对话等场景。"""
+    return _ingest_text(source_text, source_name)
+
+
+def _ingest_text(source_text: str, source_name: str) -> dict:
+    """核心摄入逻辑：给定文本和来源名，执行 LLM 整合 + 超链接解析。"""
     schema_content = schema.load_schema()
     index_content = wiki.read_index()
 
     system_prompt = build_system_prompt(schema_content)
-    user_prompt = build_user_prompt(source_text, index_content, file_name)
+    user_prompt = build_user_prompt(source_text, index_content, source_name)
 
     response = chat(system_prompt, user_prompt)
 

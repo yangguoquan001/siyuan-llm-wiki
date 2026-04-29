@@ -307,38 +307,36 @@ def chat(raw_dir):
 
 
 def _do_save(history: list[tuple[str, str]], title: str = "") -> None:
-    """将对话历史保存为 Wiki 查询存档页面。"""
+    """将对话作为来源文档，通过 ingest 管线提取实体/概念存入 Wiki。"""
     if not history:
         click.echo("对话历史为空，没有可保存的内容。")
         return
 
     from datetime import datetime
-    from siyuan_llm_wiki import wiki
+    from siyuan_llm_wiki.operations.ingest import run_text
 
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M")
-    safe_title = _make_safe_title(title) if title else f"对话-{timestamp}"
-    page_name = f"queries/{safe_title}"
-
-    lines = [f"# {title or f'对话存档 {timestamp}'}", ""]
+    # 格式化对话为 markdown
+    lines = []
     for role, text in history:
         lines.append(f"## {role}")
         lines.append("")
         lines.append(text)
         lines.append("")
-    content = "\n".join(lines)
+    source_text = "\n".join(lines)
 
-    wiki.write_page(page_name, content)
-    wiki.append_log(f"chat | 对话已保存为 {page_name}")
+    source_name = f"对话-{_make_safe_title(title)}" if title else f"对话-{datetime.now().strftime('%Y%m%d-%H%M')}"
 
-    # 更新索引
-    index_content = wiki.read_index()
-    new_entry = f"- [[{safe_title}]]: 对话存档，{len(history) // 2} 轮问答\n"
-    if "## 查询存档" not in index_content:
-        index_content += "\n## 查询存档\n"
-    index_content += new_entry
-    wiki.write_index(index_content)
-
-    click.echo(f"对话已保存到 /pages/{page_name}")
+    click.echo(f"正在从对话中提取知识...")
+    try:
+        result = run_text(source_text, source_name)
+        if result.get("summary"):
+            click.echo(f"摘要：{result['summary']}")
+        click.echo()
+        click.echo(f"更新了 {len(result['changes'])} 个页面：")
+        for change in result["changes"]:
+            click.echo(f"  - {change}")
+    except Exception as e:
+        click.echo(f"错误：{e}", err=True)
 
 
 def _make_safe_title(text: str) -> str:
