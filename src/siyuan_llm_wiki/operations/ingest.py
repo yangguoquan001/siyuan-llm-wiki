@@ -30,6 +30,7 @@ def _ingest_text(source_text: str, source_name: str) -> dict:
     response = chat(system_prompt, user_prompt)
 
     ops = _parse_operations(response)
+    ops = _enforce_index_consistency(ops)
 
     # ── 第一遍：创建/更新所有页面，收集 block ID ──
     page_ids: dict[str, str] = {}  # {页面名: block_id}
@@ -80,6 +81,30 @@ def _parse_operations(response: str) -> list[dict]:
                     "content": content,
                 }
             )
+
+    return ops
+
+
+def _enforce_index_consistency(ops: list[dict]) -> list[dict]:
+    """确保 index 中的每个 [[页面名]] 都有对应的创建/更新操作。没有则移除该索引条目。"""
+    # 收集所有创建/更新操作涉及的页面叶子名
+    created = set()
+    for op in ops:
+        if op.get("action") != "update_index" and "path" in op:
+            leaf = op["path"].rsplit("/", 1)[-1] if "/" in op["path"] else op["path"]
+            created.add(leaf)
+
+    for op in ops:
+        if op.get("action") == "update_index" and "content" in op:
+            lines = op["content"].split("\n")
+            kept = []
+            for line in lines:
+                m = re.search(r"\[\[(.+?)\]\]", line)
+                if m:
+                    if m.group(1) not in created:
+                        continue  # 无对应页面，移除该索引条目
+                kept.append(line)
+            op["content"] = "\n".join(kept)
 
     return ops
 

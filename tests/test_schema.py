@@ -43,16 +43,12 @@ def test_write_default_schema_writes_when_empty():
     mock_client.get_ids_by_hpath.return_value = ["20250101000000-abc123"]
     mock_client.export_md_content.return_value = ""
 
-    with (
-        patch("siyuan_llm_wiki.wiki.get_client", return_value=mock_client),
-        patch("siyuan_llm_wiki.siyuan.get_client", return_value=mock_client),
-    ):
+    with patch("siyuan_llm_wiki.wiki.get_client", return_value=mock_client):
         from siyuan_llm_wiki.schema import write_default_schema
 
         write_default_schema()
-        # delete_block + create_doc 应该被调用
-        mock_client.delete_block.assert_called_once()
-        mock_client.create_doc.assert_called_once()
+        # update_block 应该被调用
+        assert mock_client.update_block.called
 
 
 def test_write_default_schema_does_not_overwrite():
