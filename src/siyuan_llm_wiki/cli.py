@@ -215,6 +215,7 @@ def chat(raw_dir):
     """交互式对话模式。"""
     raw = raw_dir or os.getenv("LLM_RAW_DIR", str(Path.cwd() / "raw"))
 
+    from datetime import datetime
     from siyuan_llm_wiki import wiki, schema
     from siyuan_llm_wiki.llm import chat as llm_chat
 
@@ -241,6 +242,8 @@ def chat(raw_dir):
     click.echo('输入问题开始对话，输入 "exit" 或 "quit" 退出，输入 "help" 查看帮助。')
     click.echo()
 
+    history: list[tuple[str, str]] = []  # [(role, content), ...]
+
     while True:
         try:
             user_input = click.prompt("你", prompt_suffix=" > ").strip()
@@ -260,6 +263,7 @@ def chat(raw_dir):
             click.echo("  直接输入问题 — 查询 Wiki")
             click.echo("  @ingest <文件名> — 摄入 raw/ 中的文件")
             click.echo("  @lint — 执行健康检查")
+            click.echo("  @save [标题] — 将当前对话保存为 Wiki 页面")
             click.echo("  exit / quit — 退出")
             click.echo()
             continue
@@ -287,14 +291,58 @@ def chat(raw_dir):
             click.echo()
             continue
 
+        if user_input.lower().startswith("@save"):
+            _do_save(history, user_input[5:].strip())
+            continue
+
         click.echo()
         try:
             response = llm_chat(system_prompt, user_input)
             click.echo(response)
+            history.append(("你", user_input))
+            history.append(("助手", response))
         except Exception as e:
             click.echo(f"错误：{e}")
         click.echo()
 
 
-if __name__ == "__main__":
-    main()
+def _do_save(history: list[tuple[str, str]], title: str = "") -> None:
+    """将对话历史保存为 Wiki 查询存档页面。"""
+    if not history:
+        click.echo("对话历史为空，没有可保存的内容。")
+        return
+
+    from datetime import datetime
+    from siyuan_llm_wiki import wiki
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M")
+    safe_title = _make_safe_title(title) if title else f"对话-{timestamp}"
+    page_name = f"queries/{safe_title}"
+
+    lines = [f"# {title or f'对话存档 {timestamp}'}", ""]
+    for role, text in history:
+        lines.append(f"## {role}")
+        lines.append("")
+        lines.append(text)
+        lines.append("")
+    content = "\n".join(lines)
+
+    wiki.write_page(page_name, content)
+    wiki.append_log(f"chat | 对话已保存为 {page_name}")
+
+    # 更新索引
+    index_content = wiki.read_index()
+    new_entry = f"- [[{safe_title}]]: 对话存档，{len(history) // 2} 轮问答\n"
+    if "## 查询存档" not in index_content:
+        index_content += "\n## 查询存档\n"
+    index_content += new_entry
+    wiki.write_index(index_content)
+
+    click.echo(f"对话已保存到 /pages/{page_name}")
+
+
+def _make_safe_title(text: str) -> str:
+    import re
+    safe = re.sub(r'[\\/*?:"<>|]', "", text)
+    safe = re.sub(r"\s+", "-", safe)
+    return safe[:40]
