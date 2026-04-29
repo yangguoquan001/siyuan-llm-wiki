@@ -1,6 +1,6 @@
 # siyuan-llm-wiki
 
-基于 [llm-wiki 方法论](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 构建的思源笔记知识库工具。
+基于 [llm-wiki 方法论](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 构建的思源笔记知识库工具。该项目完全基于 deepseek-v4-pro 开发。
 
 通过 LLM 将来源文档深度整合到[思源笔记](https://b3log.org/siyuan/)中，构建可积累的结构化知识库。核心思路：LLM 不只是检索原始文档，而是**增量构建和维护一个持久化的 Wiki** — 摘要、实体页、概念页、交叉引用全部由 LLM 自动生成和维护，知识随每次摄入不断积累。
 
